@@ -1,0 +1,14 @@
+acquisition/
+private/
+__pycache__/
+*.pyc
+analysis/
+node_modules/
+runtime/
+*.sqlite
+*.sqlite3
+*.db
+*.log
+.env
+outputs/V*/
+*.zip
