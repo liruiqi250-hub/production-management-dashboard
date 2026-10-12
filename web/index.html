@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>生产管理看板 V0.2.4</title><link rel="stylesheet" href="/styles.css?v=0.2.4"><script src="/app.js?v=0.2.4" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>生产管理看板 V0.2.5</title><link rel="stylesheet" href="/styles.css?v=0.2.5"><script src="/app.js?v=0.2.5" defer></script></head>
 <body>
 <section id="login-screen" class="login-screen">
-  <form id="login-form" class="login-card"><div class="brand-icon">产</div><h1>生产管理看板</h1><p class="muted">仿真恐龙 · 公司内网 · V0.2.4</p><label>账号<input name="username" autocomplete="username" required maxlength="32" placeholder="请输入授权账号"></label><label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="120"></label><p id="login-error" class="error" role="alert"></p><button class="primary" type="submit">登录看板</button><p class="small muted">仅限已授权人员。首次账号信息由李睿琪分配。</p></form>
+  <form id="login-form" class="login-card"><div class="brand-icon">产</div><h1>生产管理看板</h1><p class="muted">仿真恐龙 · 公司内网 · V0.2.5</p><label>账号<input name="username" autocomplete="username" required maxlength="32" placeholder="请输入授权账号"></label><label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="120"></label><p id="login-error" class="error" role="alert"></p><button class="primary" type="submit">登录看板</button><p class="small muted">仅限已授权人员。首次账号信息由李睿琪分配。</p></form>
 </section>
 <section id="password-required-screen" class="login-screen" hidden>
   <form id="first-password-form" class="login-card">
@@ -16,16 +16,16 @@
     <p id="first-password-error" class="error" role="alert"></p>
     <button class="primary" type="submit">保存新密码并重新登录</button>
     <button id="first-password-logout" type="button">退出登录</button>
-    <p class="small muted">公司内网 · V0.2.4</p>
+    <p class="small muted">公司内网 · V0.2.5</p>
   </form>
 </section>
 <div id="application" hidden>
-  <header class="topbar"><div class="brand"><div class="brand-icon">产</div><div><h1>生产管理</h1><p class="muted">仿真恐龙 · 订单问题与进度 <span class="version">V0.2.4</span></p></div></div><div class="userbar"><span id="user-name"></span><button id="refresh-button">刷新</button><button id="logout-button">退出</button></div></header>
+  <header class="topbar"><div class="brand"><div class="brand-icon">产</div><div><h1>生产管理</h1><p class="muted">仿真恐龙 · 订单问题与进度 <span class="version">V0.2.5</span></p></div></div><div class="userbar"><span id="user-name"></span><button id="refresh-button">刷新</button><button id="logout-button">退出</button></div></header>
   <nav class="navigation" aria-label="页面"><button data-page="overview" aria-current="page">厂长总览</button><button data-page="work">事项工作台</button><button data-page="coverage">数据覆盖</button><button data-page="access">账号与 Codex</button></nav>
   <main>
     <div id="global-error" class="error notice" role="alert" hidden></div>
     <section data-view="overview">
-      <div class="page-heading"><div><h2>生产事项与跟进</h2><p class="muted" id="snapshot-label"></p></div><div class="export-tools"><label class="small">报告格式<select id="report-format"><option value="pdf">PDF 报告</option><option value="html">网页打印版 HTML</option><option value="csv">可编辑 CSV 台账</option></select></label><button id="daily-button" class="primary">导出日报</button><button id="weekly-button">导出周报</button></div></div>
+      <div class="page-heading"><div><h2>生产事项与跟进</h2><p class="muted" id="snapshot-label"></p></div><div class="export-tools"><label class="small">报告格式<select id="report-format"><option value="pdf">PDF 报告</option><option value="html">网页打印版 HTML</option><option value="csv">可编辑 CSV 台账</option></select></label><button id="daily-button" class="primary">导出日报</button><button id="weekly-button">导出周报</button><p id="export-status" class="small muted export-status" role="status" aria-live="polite"></p></div></div>
       <div class="metrics"><article><span>未结事项</span><strong id="metric-open">—</strong><small>当前已登记台账</small></article><article><span>已完成 / 阶段确认</span><strong id="metric-closed">—</strong><small>完成范围见事项依据</small></article><article><span>本轮读取消息</span><strong id="metric-messages">—</strong><small id="metric-groups">指定群采集</small></article></div>
       <div class="notice" id="coverage-notice"></div>
       <div class="filters"><label>开始日期<input type="date" id="start-date"></label><label>结束日期<input type="date" id="end-date"></label><label>状态<select id="status-filter"><option value="all">全部状态</option><option value="open">全部未结</option><option>待确认</option><option>待处理</option><option>处理中</option><option>待验证</option><option value="已解决">已完成</option></select></label><label>来源群<select id="group-filter"><option value="all">全部群</option></select></label><label class="checkbox"><input type="checkbox" id="carry-filter" checked>保留更早未结事项</label></div>

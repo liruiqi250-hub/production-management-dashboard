@@ -8,3 +8,5 @@
 @media(prefers-color-scheme:dark){:root{--bg:#151a23;--panel:#202734;--ink:#ecf1f8;--muted:#b5c1d3;--line:#3a465b;--brand:#b4d3f3;--brandbg:#2d405a;--warn:#ffd18a;--warnbg:#49391f;--green:#9de0be;--greenbg:#204438;--red:#ffb5b5;--redbg:#4b2a31}}
 .login-screen{min-height:100vh;min-height:100svh}.login-card input{-webkit-appearance:none;appearance:none}.login-card button{-webkit-appearance:none;appearance:none}
 .item-summary{line-height:1.65;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;max-height:3.3em}.item-hint{font-size:11px;color:var(--muted);margin-top:6px;text-align:right}.full-summary{white-space:pre-line;font-size:13px;overflow-wrap:anywhere}
+.export-status{flex-basis:100%;text-align:right;overflow-wrap:anywhere}
+@media(max-width:780px){.export-tools label{flex-basis:100%}.export-tools button{white-space:nowrap}}

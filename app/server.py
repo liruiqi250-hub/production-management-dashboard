@@ -170,7 +170,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 # 离线报表有自包含打印样式，作为下载附件交付。
                 self.send_header("Content-Type", {"csv": "text/csv; charset=utf-8", "pdf": "application/pdf", "html": "text/html; charset=utf-8"}[fmt])
-                self.send_header("Content-Disposition", "attachment; filename*=UTF-8''" + quote(filename))
+                ascii_filename = f"production_{kind}_{end}_V{__version__}.{fmt}"
+                self.send_header("Content-Disposition", f'attachment; filename="{ascii_filename}"; filename*=UTF-8\'\'' + quote(filename))
                 self.send_header("Cache-Control", "no-store")
                 self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("Content-Length", str(len(body)))

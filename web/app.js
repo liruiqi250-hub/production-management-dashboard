@@ -8,7 +8,7 @@ function textDate(value){return value?String(value).replace('T',' ').slice(0,19)
 function dateOnly(value){return value?String(value).slice(0,10):'';}
 function showError(message){$('global-error').textContent=message;$('global-error').hidden=!message;}
 async function api(path, options={}){const method=options.method||'GET';const headers={...options.headers};if(options.body){headers['Content-Type']='application/json';options.body=JSON.stringify(options.body);}if(method!=='GET')headers['X-CSRF-Token']=state.csrf||'';const response=await fetch(path,{...options,headers,credentials:'same-origin'});const result=await response.json();if(!response.ok){if(response.status===401&&path!=='/api/login')showLogin();throw new Error(result.error||'请求失败');}return result;}
-function clearPrivateView(){state.snapshot=null;state.selected=null;for(const id of ['token-secret','new-user-secret','token-list','user-list','item-list','work-list','item-detail'])clear($(id));$('token-secret').hidden=true;$('new-user-secret').hidden=true;$('password-form').reset();$('token-form').reset();if($('detail-dialog').open)$('detail-dialog').close();}
+function clearPrivateView(){state.snapshot=null;state.selected=null;for(const id of ['token-secret','new-user-secret','token-list','user-list','item-list','work-list','item-detail'])clear($(id));$('token-secret').hidden=true;$('new-user-secret').hidden=true;$('export-status').textContent='';$('password-form').reset();$('token-form').reset();if($('detail-dialog').open)$('detail-dialog').close();}
 function showLogin(){$('application').hidden=true;$('password-required-screen').hidden=true;$('login-screen').hidden=false;state.user=null;state.csrf=null;clearPrivateView();$('first-password-form').reset();$('first-password-error').textContent='';$('first-password-user').textContent='';$('login-form').password.value='';}
 function showPasswordRequired(){clearPrivateView();$('application').hidden=true;$('login-screen').hidden=true;$('password-required-screen').hidden=false;$('first-password-user').textContent=state.user.display_name+'（'+state.user.username+'）';$('first-password-form').reset();$('first-password-error').textContent='';}
 async function load(){try{const me=await api('/api/me');state.user=me.user;state.csrf=me.csrf;state.lanUrl=me.lan_url;if(me.user.must_change_password){showPasswordRequired();return;}state.snapshot=await api('/api/dashboard');$('password-required-screen').hidden=true;$('login-screen').hidden=true;$('application').hidden=false;$('user-name').textContent=me.user.display_name+' · '+({admin:'管理',editor:'处理事项',viewer:'查看'}[me.user.role]||'查看');$('user-management').hidden=me.user.role!=='admin';$('manual-item-panel').hidden=me.user.role!=='admin';initFilters();render();showError('');}catch(e){if(state.user)showError(e.message);}}
@@ -49,7 +49,33 @@ $('first-password-logout').addEventListener('click',logout);
 $('refresh-button').addEventListener('click',load);
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
 for(const id of ['start-date','end-date','status-filter','group-filter','carry-filter'])$(id).addEventListener('change',()=>{showError('');renderList();});
-function download(kind){const end=$('end-date').value;if(!end){showError('请先选择报告结束日期');return;}window.location.assign('/api/reports?'+new URLSearchParams({kind,end,format:$('report-format').value}));}
+let exporting=false;
+async function download(kind){
+ if(exporting)return;
+ const end=$('end-date').value;if(!end){showError('请先选择报告结束日期');return;}
+ const format=$('report-format').value,label=kind==='daily'?'日报':'周报',session=state.csrf;
+ const buttons=[$('daily-button'),$('weekly-button')],active=$(kind+'-button'),original=active.textContent;
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),60000);
+ exporting=true;buttons.forEach(b=>b.disabled=true);active.textContent='正在生成'+label+'…';showError('');$('export-status').textContent='生成后将直接下载，请稍候。';
+ try{
+  const response=await fetch('/api/reports?'+new URLSearchParams({kind,end,format}),{credentials:'same-origin',signal:controller.signal});
+  if(state.csrf!==session)return;
+  if(response.status===401){showLogin();$('login-error').textContent='登录已过期，请重新登录后下载报告。';return;}
+  if(!response.ok){const result=await response.json().catch(()=>({}));if(state.csrf!==session)return;if(result.code==='password_change_required'){await load();$('first-password-error').textContent='请先修改初始密码，再下载报告。';return;}throw new Error(result.error||'报告生成失败，请稍后重试。');}
+  const expected={pdf:'application/pdf',csv:'text/csv',html:'text/html'}[format];
+  if(!expected||!String(response.headers.get('Content-Type')).startsWith(expected))throw new Error('报告返回格式异常，请重试。');
+  const file=await response.blob();if(!file.size)throw new Error('报告文件为空，请重试。');
+  if(state.csrf!==session)return;
+  let filename='生产管理_'+label+'_'+end+'.'+format;
+  const encoded=/filename\*=UTF-8''([^;]+)/i.exec(response.headers.get('Content-Disposition')||'');
+  if(encoded){try{filename=decodeURIComponent(encoded[1]);}catch(_){}}
+  filename=filename.replace(/[\\/:*?"<>|\u0000-\u001f]/g,'_');
+  const url=URL.createObjectURL(file),link=node('a',{href:url,download:filename,hidden:''});
+  document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  $('export-status').textContent='已开始下载'+label+'：'+filename;
+ }catch(err){if(state.csrf===session){$('export-status').textContent='';showError(err.name==='AbortError'?'报告生成超时，请稍后重试。':err.name==='TypeError'?'下载失败，请检查内网连接后重试。':err.message);}}
+ finally{clearTimeout(timer);exporting=false;buttons.forEach(b=>b.disabled=false);active.textContent=original;}
+}
 $('daily-button').addEventListener('click',()=>download('daily'));$('weekly-button').addEventListener('click',()=>download('weekly'));
 $('close-detail').addEventListener('click',()=>$('detail-dialog').close());$('detail-dialog').addEventListener('close',()=>$('detail-home').append($('item-detail')));
 $('token-form').addEventListener('submit',async e=>{e.preventDefault();try{const data=Object.fromEntries(new FormData(e.target));data.days=Number(data.days);const token=await api('/api/tokens',{method:'POST',body:data});const box=clear($('token-secret'));box.hidden=false;box.append(node('strong',{},'仅显示这一次，请保存到你自己的Codex私密配置。'));const field=node('input',{readonly:'',type:'text','aria-label':'个人只读令牌'});field.value=token.token;box.append(field,node('p',{class:'small'},'到期：'+textDate(token.expires)));field.addEventListener('focus',()=>field.select());await loadAccess();}catch(err){showError(err.message);}});
