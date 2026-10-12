@@ -5,6 +5,7 @@ __pycache__/
 analysis/
 node_modules/
 runtime/
+vendor/
 *.sqlite
 *.sqlite3
 *.db

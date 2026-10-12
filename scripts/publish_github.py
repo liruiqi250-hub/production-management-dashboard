@@ -17,7 +17,7 @@ TEXT_SUFFIXES = {".py", ".js", ".ts", ".css", ".html", ".json", ".md", ".txt",
                  ".ps1", ".cmd", ".bat", ".toml", ".yaml", ".yml", ".csv",
                  ".ini", ".cfg", ".xml"}
 ROOT_FILES = {".gitignore", "AGENTS.md", "README.md", "CHANGELOG.md", "VERSION"}
-CODE_DIRS = {"app", "web", "scripts", "tests", "docs", "automation"}
+CODE_DIRS = {"app", "web", "scripts", "tests", "docs", "automation", "dependencies"}
 EXCLUDED_DIRS = {"outputs", "private", "acquisition", "analysis", "runtime",
                  "node_modules", "__pycache__", ".git"}
 SENSITIVE_NAME = re.compile(r"(?:^|[._-])(?:private|secrets?|tokens?|credentials?)(?:$|[._-])", re.I)
@@ -109,7 +109,7 @@ def _allowed_file(name: str) -> bool:
     if any(part.casefold() in EXCLUDED_DIRS for part in parts):
         return False
     if len(parts) == 1:
-        return name in ROOT_FILES or (name.startswith("启动") and name.endswith(".cmd"))
+        return name in ROOT_FILES or (name.startswith(("启动", "检查运行环境")) and name.endswith(".cmd"))
     return parts[0] in CODE_DIRS and Path(name).suffix.casefold() in TEXT_SUFFIXES
 
 

@@ -1,7 +1,12 @@
 param()
 $ErrorActionPreference = 'Stop'
 $workspacePath = Split-Path -Parent $PSScriptRoot
-$pythonPath = 'D:\360MoveData\Users\ASUS\Documents\ChatGPT\售后\automation\exporter\v1.3.4\venv\Scripts\python.exe'
+$pythonPath = if ($env:DINO_WECHAT_PYTHON) { $env:DINO_WECHAT_PYTHON } else { Join-Path $workspacePath 'vendor\wechat\venv\Scripts\python.exe' }
+if (-not (Test-Path -LiteralPath $pythonPath)) {
+  if ($env:DINO_WECHAT_PYTHON) { throw '指定的微信采集Python不存在。' }
+  $pythonPath = 'D:\360MoveData\Users\ASUS\Documents\ChatGPT\售后\automation\exporter\v1.3.4\venv\Scripts\python.exe'
+}
+if (-not (Test-Path -LiteralPath $pythonPath)) { throw '未安装微信采集环境，请按dependencies/微信采集依赖.md配置。' }
 $collectorPath = Join-Path $PSScriptRoot 'collect_scoped_wechat_V0.1.3.py'
 $chinaTimeZone = [TimeZoneInfo]::FindSystemTimeZoneById('China Standard Time')
 $chinaNow = [TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, $chinaTimeZone)

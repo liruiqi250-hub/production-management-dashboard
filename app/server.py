@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import hmac
 import ipaddress
 import json
@@ -117,7 +118,8 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         if path == "/health":
-            return self.json({"status": "ready", "version": __version__})
+            return self.json({"status": "ready", "version": __version__,
+                              "workspace_id": getattr(self.server, "workspace_id", "")})
         if path in {"/", "/index.html", "/app.js", "/styles.css"}:
             name = "index.html" if path == "/" else path.lstrip("/")
             target = ROOT / "web" / name
@@ -266,9 +268,11 @@ def main():
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8769)
     parser.add_argument("--lan-ip", default="192.168.10.237")
+    parser.add_argument("--workspace-id", default=hashlib.sha256(str(ROOT.resolve()).casefold().encode("utf-8")).hexdigest())
     args = parser.parse_args()
     store = Store(ROOT)
     server = DashboardServer((args.host, args.port), store, args.lan_ip)
+    server.workspace_id = args.workspace_id
     print(f"生产管理看板 V{__version__} http://{args.lan_ip}:{args.port}", flush=True)
     server.serve_forever()
 

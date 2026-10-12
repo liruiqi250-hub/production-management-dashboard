@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "platform": "windows-x64",
+  "python_major_minor": "3.12",
+  "exporter": {
+    "repository": "https://github.com/zhuzhangxue/wechat-chat-export",
+    "version": "1.3.4",
+    "commit": "5b56e51cd9368bc7e4c563761057b561501809d9",
+    "url": "https://codeload.github.com/zhuzhangxue/wechat-chat-export/zip/refs/tags/v1.3.4",
+    "sha256": "24b5684bb4d9414c0f6c550d63c11b5f34356a89b7df3e2f432d02161a73964b",
+    "license": "Apache-2.0",
+    "directory": "source/wechat-chat-export-1.3.4",
+    "files": {
+      "exporter_core.py": "04341f81f4bbf77dc57a169af472d833518981a0906a1aef499de21a84ce0083",
+      "cli.py": "6904d9fdbaeac8251e8e5095da7378ff21782572b3f1ccb68bc3c2ea274339e8",
+      "wechat_data_dirs.py": "189183dc0c8ff64c74c7986f56ebebfbe220c63530118e1d265a98c8316b6ac1",
+      "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "THIRD_PARTY_NOTICES.md": "5d9e33b8f03009bfe2d229ef432bd603433c7c2f6f7ff9f4bbd48d4431a1c8d9",
+      "requirements.txt": "3458c1a2ba93ba3fe43fe6265d977687ae226a802da630b0a07d9d8b52726649"
+    }
+  },
+  "wechatauto_commit": "04ef8cbde3862cff90b5f6b42c9ebfcea44ef48d",
+  "packages": [
+    {
+      "name": "cffi",
+      "version": "2.1.1",
+      "url": "https://files.pythonhosted.org/packages/d9/79/615cc094e2fb508cade7de88d3b4f6c4ec2bab695c97bce9153dc65aadf5/cffi-2.1.1-cp312-cp312-win_amd64.whl",
+      "sha256": "f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a",
+      "license": "MIT-0"
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "url": "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl",
+      "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "name": "comtypes",
+      "version": "1.4.17",
+      "url": "https://files.pythonhosted.org/packages/89/9c/d0bc1fb69ad22a04bdc01dd9b5613a2ebc4d02ba1ec24b02127dc93791ba/comtypes-1.4.17-py3-none-any.whl",
+      "sha256": "4e0a221dde2c589b82977bed802efd71cd5eb67a380347b732e02735e597f586",
+      "license": "MIT"
+    },
+    {
+      "name": "cryptography",
+      "version": "50.0.2",
+      "url": "https://files.pythonhosted.org/packages/9a/4f/adfc442765721292fff86d314ce385d3249d22db42295c0dd057727b60f3/cryptography-50.0.2-cp311-abi3-win_amd64.whl",
+      "sha256": "7afa5a6602a9f29af1f3a2965f831bae7c9d5d597b7cbb716d41ab3b7d89879c",
+      "license": "Apache-2.0 OR BSD-3-Clause"
+    },
+    {
+      "name": "imageio-ffmpeg",
+      "version": "0.6.0",
+      "url": "https://files.pythonhosted.org/packages/2c/c6/fa760e12a2483469e2bf5058c5faff664acf66cadb4df2ad6205b016a73d/imageio_ffmpeg-0.6.0-py3-none-win_amd64.whl",
+      "sha256": "02fa47c83703c37df6bfe4896aab339013f62bf02c5ebf2dce6da56af04ffc0a",
+      "license": "BSD-2-Clause (wrapper); bundled FFmpeg uses GPLv3 build"
+    },
+    {
+      "name": "numpy",
+      "version": "2.5.3",
+      "url": "https://files.pythonhosted.org/packages/3c/a1/accf6d4f0c80c5d9ba9735d6b1550e444180599f34dec69ca01360f717ad/numpy-2.5.3-cp312-cp312-win_amd64.whl",
+      "sha256": "0a59a421a32580a009e8a1751345bf829631b990dc1794b80514ab722b435def",
+      "license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0"
+    },
+    {
+      "name": "pillow",
+      "version": "12.3.0",
+      "url": "https://files.pythonhosted.org/packages/45/89/da2f7971a317f83d807fdd4065c0af40208e59e692cc43d315a71a0e96d1/pillow-12.3.0-cp312-cp312-win_amd64.whl",
+      "sha256": "a2b55dd6b2a4c4b7d87ffa56bdb33fdc5fdb9a462173861a7bc097f17d91cb09",
+      "license": "MIT-CMU"
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2",
+      "url": "https://files.pythonhosted.org/packages/b4/90/e2159492b5426be0c1fef7acba807a03511f97c5f86b3caeda6ad92351a7/psutil-7.2.2-cp37-abi3-win_amd64.whl",
+      "sha256": "eb7e81434c8d223ec4a219b5fc1c47d0417b12be7ea866e24fb5ad6e84b3d988",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "name": "pycparser",
+      "version": "3.0",
+      "url": "https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl",
+      "sha256": "b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "name": "pyperclip",
+      "version": "1.11.0",
+      "url": "https://files.pythonhosted.org/packages/df/80/fc9d01d5ed37ba4c42ca2b55b4339ae6e200b456be3a1aaddf4a9fa99b8c/pyperclip-1.11.0-py3-none-any.whl",
+      "sha256": "299403e9ff44581cb9ba2ffeed69c7aa96a008622ad0c46cb575ca75b5b84273",
+      "license": "BSD"
+    },
+    {
+      "name": "pywin32",
+      "version": "312",
+      "url": "https://files.pythonhosted.org/packages/03/d9/77040d3b43df3f3be32ea289433d660d2727f5ba327bc73be835127d9d60/pywin32-312-cp312-cp312-win_amd64.whl",
+      "sha256": "b457f6d628a47e8a7346ce22acb7e1a46a4a78b52e1d17e1af56871bd19a93bc",
+      "license": "PSF"
+    },
+    {
+      "name": "sherpa-onnx-core",
+      "version": "1.13.6",
+      "url": "https://files.pythonhosted.org/packages/81/61/d32923b9f6fa039271760e1c642ffd496b8e2b3340e084bd9b0c7b568448/sherpa_onnx_core-1.13.6-py3-none-win_amd64.whl",
+      "sha256": "9e7ac522b4f108412f6a1173c0e512c65e98d4714d9d9aa0002279d588d2e699",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "sherpa_onnx",
+      "version": "1.13.6",
+      "url": "https://files.pythonhosted.org/packages/bc/8f/1510c5b78a933e5ed7caf61001c6018516f9b0c736cc9ffc60cdb252fed3/sherpa_onnx-1.13.6-cp312-cp312-win_amd64.whl",
+      "sha256": "1b7b57cfd99767031b9bae9d1007094b6c14f85d4176b422438ae76312840e89",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "soundfile",
+      "version": "0.14.0",
+      "url": "https://files.pythonhosted.org/packages/ed/97/b39c18ac1df45e755ca22b8b00e872929da5d107998a207a5e4ac831bfda/soundfile-0.14.0-py2.py3-none-win_amd64.whl",
+      "sha256": "299491d3499460fb1b74bb4bd78b57ffc2d243a5fafa7b6ec1b264875c78453e",
+      "license": "BSD-3-Clause (wrapper); bundled libsndfile has separate LGPL terms"
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "license": "PSF-2.0"
+    },
+    {
+      "name": "uiautomation",
+      "version": "2.0.29",
+      "url": "https://files.pythonhosted.org/packages/b0/27/b9c4b33b4129805fa2c437fa13da06c71e74213ae46da098d194d89834fe/uiautomation-2.0.29-py3-none-any.whl",
+      "sha256": "5dd51c9e77e70470142a13d903be67f256c445e7cf20b47ada0ece2bdaff9f32",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "wechatauto-replica",
+      "version": "1.1.9",
+      "url": "https://github.com/fanyuantaier/wechatauto-replica/archive/04ef8cbde3862cff90b5f6b42c9ebfcea44ef48d.zip",
+      "sha256": "8ea29dbd810b3977813e872991232b0a92edc12396aa1368f5215d88e5699834",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "winsdk",
+      "version": "1.0.0b10",
+      "url": "https://files.pythonhosted.org/packages/0c/87/a5ffbb9613fcd3917183707ac16c88e82d22a1faf933bb9a3e04fff2f289/winsdk-1.0.0b10-cp312-cp312-win_amd64.whl",
+      "sha256": "8231ce5f16e1fc88bb7dda0adf35633b5b26101eae3b0799083ca2177f03e4e5",
+      "license": "MIT"
+    },
+    {
+      "name": "zstandard",
+      "version": "0.25.0",
+      "url": "https://files.pythonhosted.org/packages/79/3b/fa54d9015f945330510cb5d0b0501e8253c127cca7ebe8ba46a965df18c5/zstandard-0.25.0-cp312-cp312-win_amd64.whl",
+      "sha256": "ffef5a74088f1e09947aecf91011136665152e0b4b359c42be3373897fb39b01",
+      "license": "BSD-3-Clause"
+    }
+  ],
+  "build_packages": [
+    {
+      "name": "setuptools",
+      "version": "80.9.0",
+      "url": "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl",
+      "sha256": "062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922",
+      "license": "MIT"
+    },
+    {
+      "name": "wheel",
+      "version": "0.45.1",
+      "url": "https://files.pythonhosted.org/packages/0b/2c/87f3254fd8ffd29e4c02732eee68a83a1d3c346ae39bc6822dcbcb697f2b/wheel-0.45.1-py3-none-any.whl",
+      "sha256": "708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248",
+      "license": "MIT"
+    }
+  ],
+  "rust_silk": {
+    "version": "0.1.3",
+    "url": "https://github.com/Wangnov/rust-silk/releases/download/v0.1.3/rust-silk-x86_64-pc-windows-msvc.zip",
+    "sha256": "44a01bc0f3ec3ec6f6044b656869b0dd7c298329d12f07c7f7a846be72a89504",
+    "file_sha256": "8df2e8b8879a4de76729a12b3b49569f7fd9f1ffd7eab851d8dd05cfcd03ce99",
+    "license": "BSD-3-Clause"
+  },
+  "sensevoice": {
+    "model_name": "SenseVoice Small Int8 2024-07-17",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2",
+    "files": {
+      "model.int8.onnx": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51",
+      "tokens.txt": "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"
+    },
+    "source_repository": "https://github.com/FunAudioLLM/SenseVoice",
+    "license_name": "FunASR Model Open Source License Agreement v1.1",
+    "license_url": "https://raw.githubusercontent.com/modelscope/FunASR/58830eca4012644aac0c3218c3ccc7d98f003fda/MODEL_LICENSE",
+    "license_sha256": "7dba975a2069691db4992b0592d70828b330d2f8a30a71450f4e152a554e84f8",
+    "optional": true
+  }
+}

@@ -1,4 +1,4 @@
-"""V0.2.0 可选 PDF 导出，使用隔离的本机 Edge 无头打印。
+"""可选 PDF 导出，使用便携 Chromium 或隔离的本机浏览器打印。
 
 不读取现有浏览器配置，不启动服务器，不需要第三方 Python 依赖。
 调用方只应传入 reports.render_report_html 生成、用户字段已经转义的 HTML。
@@ -15,6 +15,21 @@ import uuid
 
 EDGE_PATH = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
 RENDER_TIMEOUT = 45
+
+
+def find_pdf_browser(workspace: Path) -> Path | None:
+    """优先使用随便携包分发的组件，再检查常见系统安装位置。"""
+    candidates = [Path(workspace) / "vendor" / "chromium" / "chrome-headless-shell.exe", EDGE_PATH]
+    for variable, relative in (
+        ("ProgramFiles", "Microsoft/Edge/Application/msedge.exe"),
+        ("LOCALAPPDATA", "Microsoft/Edge/Application/msedge.exe"),
+        ("ProgramFiles", "Google/Chrome/Application/chrome.exe"),
+        ("LOCALAPPDATA", "Google/Chrome/Application/chrome.exe"),
+    ):
+        base = os.environ.get(variable)
+        if base:
+            candidates.append(Path(base) / relative)
+    return next((path for path in candidates if path.is_file()), None)
 
 
 class PDFExportError(RuntimeError):
@@ -44,14 +59,15 @@ def render_report_pdf(html: str, workspace: Path) -> bytes:
     """在 workspace/private/report_render/<uuid> 中打印，返回 PDF bytes。
 
     每次使用独立 user-data-dir，最多等待 Edge 45 秒；结束后清理本次
-    临时文件。清理仅针对经过边界核验的唯一子目录，失败不删除其它文件。
+        临时文件。清理仅针对经过边界核验的唯一子目录，失败不删除其它文件。
     """
     if not isinstance(html, str) or not html.strip():
         raise PDFExportError("PDF导出失败：打印稿内容为空。")
     if os.name != "nt":
-        raise PDFExportError("PDF导出当前仅支持安装了 Microsoft Edge 的 Windows 本机。")
-    if not EDGE_PATH.is_file():
-        raise PDFExportError("PDF导出不可用：未找到本机 Microsoft Edge，请先使用HTML打印稿。")
+        raise PDFExportError("PDF导出当前仅支持 Windows 本机。")
+    browser = find_pdf_browser(workspace)
+    if browser is None:
+        raise PDFExportError("PDF导出不可用：未找到随包PDF组件或本机浏览器，请使用完整便携包或HTML打印稿。")
     try:
         root = Path(workspace).resolve(strict=True)
         expected_private = root / "private"
@@ -78,11 +94,13 @@ def render_report_pdf(html: str, workspace: Path) -> bytes:
         profile_path = render_dir / "edge-profile"
         input_path.write_text(html, encoding="utf-8")
         arguments = [
-            str(EDGE_PATH), "--headless=new", "--no-first-run", "--no-default-browser-check",
+            str(browser), "--no-first-run", "--no-default-browser-check",
             "--disable-background-networking", "--no-pdf-header-footer",
             "--user-data-dir=" + str(profile_path),
             "--print-to-pdf=" + str(output_path), input_path.as_uri(),
         ]
+        if browser.name.casefold() != "chrome-headless-shell.exe":
+            arguments.insert(1, "--headless=new")
         startup = subprocess.STARTUPINFO()
         startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         startup.wShowWindow = subprocess.SW_HIDE
@@ -95,11 +113,11 @@ def render_report_pdf(html: str, workspace: Path) -> bytes:
             return_code = process.wait(timeout=RENDER_TIMEOUT)
         except subprocess.TimeoutExpired as exc:
             _stop_process_tree(process)
-            raise PDFExportError("PDF导出超时：本机Edge在45秒内未完成打印，请重试或使用HTML打印稿。") from exc
+            raise PDFExportError("PDF导出超时：PDF组件在45秒内未完成打印，请重试或使用HTML打印稿。") from exc
         if return_code != 0:
-            raise PDFExportError("PDF导出失败：本机Edge未正常完成打印，请重试或使用HTML打印稿。")
+            raise PDFExportError("PDF导出失败：PDF组件未正常完成打印，请重试或使用HTML打印稿。")
         if not output_path.is_file():
-            raise PDFExportError("PDF导出失败：本机Edge未生成PDF文件，请使用HTML打印稿。")
+            raise PDFExportError("PDF导出失败：PDF组件未生成PDF文件，请使用HTML打印稿。")
         pdf = output_path.read_bytes()
         if len(pdf) < 512 or not pdf.startswith(b"%PDF-") or b"%%EOF" not in pdf[-1024:]:
             raise PDFExportError("PDF导出失败：生成文件不完整，请重试或使用HTML打印稿。")
@@ -107,7 +125,7 @@ def render_report_pdf(html: str, workspace: Path) -> bytes:
     except PDFExportError:
         raise
     except (OSError, ValueError) as exc:
-        raise PDFExportError("PDF导出失败：无法启动本机Edge或读取打印结果，请使用HTML打印稿。") from exc
+        raise PDFExportError("PDF导出失败：无法启动PDF组件或读取打印结果，请使用HTML打印稿。") from exc
     finally:
         if process is not None:
             _stop_process_tree(process)

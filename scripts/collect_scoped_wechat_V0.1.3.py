@@ -7,6 +7,7 @@ import gc
 import hashlib
 import io
 import json
+import os
 import re
 import sys
 import types
@@ -15,9 +16,13 @@ from pathlib import Path
 
 VERSION = "0.1.3"
 WORKSPACE = Path(__file__).resolve().parents[1]
-RUNTIME = Path(r"D:\360MoveData\Users\ASUS\Documents\ChatGPT\售后\automation\exporter\v1.3.4")
+LEGACY_RUNTIME = Path(r"D:\360MoveData\Users\ASUS\Documents\ChatGPT\售后\automation\exporter\v1.3.4")
+RUNTIME = Path(os.environ["DINO_WECHAT_RUNTIME"]) if os.environ.get("DINO_WECHAT_RUNTIME") else (
+    WORKSPACE / "vendor" / "wechat" if (WORKSPACE / "vendor" / "wechat").is_dir() else LEGACY_RUNTIME)
 SOURCE = RUNTIME / "source" / "wechat-chat-export-1.3.4"
-PRIOR_ACCOUNT_BINDING = RUNTIME.parents[1] / "private" / "monthly_binding_candidate_V1.1.0.private.json"
+PRIOR_ACCOUNT_BINDING = Path(os.environ["DINO_WECHAT_BINDING"]) if os.environ.get("DINO_WECHAT_BINDING") else (
+    WORKSPACE / "private" / "wechat_binding.json" if (WORKSPACE / "private" / "wechat_binding.json").is_file()
+    else LEGACY_RUNTIME.parents[1] / "private" / "monthly_binding_candidate_V1.1.0.private.json")
 TZ = timezone(timedelta(hours=8))
 GROUPS = [
     "生产资料群", "彩灯传动沟通群", "李婷订单沟通群", "曾霞订单沟通群",
@@ -34,6 +39,20 @@ def digest(value):
 def save(path, payload):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def collection_period(start_text, end_text, now):
+    """仅允许含中国当天的最近七个自然日内采集，截止不超过本轮实际时间。"""
+    now = now.astimezone(TZ)
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start = datetime.strptime(start_text, "%Y-%m-%d").replace(tzinfo=TZ) if start_text else today - timedelta(days=6)
+    requested_end = datetime.strptime(end_text, "%Y-%m-%d").replace(tzinfo=TZ) if end_text else today + timedelta(days=1)
+    if start < today - timedelta(days=6) or requested_end > today + timedelta(days=1):
+        raise ValueError("日期超出已授权的滚动最近七天范围")
+    end = min(requested_end, now)
+    if start >= end:
+        raise ValueError("时间范围无效")
+    return start, end
 
 
 def group_rows(db, name):
@@ -135,8 +154,8 @@ def restricted_rows(core, db, username, start_ts, end_ts, stats):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--phase", choices=["probe", "export"], required=True)
-    parser.add_argument("--start", default="2026-10-06")
-    parser.add_argument("--end-exclusive", default="2026-10-13")
+    parser.add_argument("--start")
+    parser.add_argument("--end-exclusive")
     parser.add_argument("--out", required=True)
     parser.add_argument("--group-indices", default="1")
     parser.add_argument("--media", action="store_true")
@@ -152,12 +171,11 @@ def main():
     if len(indices) != len(set(indices)) or any(i < 1 or i > len(GROUPS) for i in indices):
         raise ValueError("群索引不在授权清单内或重复")
     now = datetime.now(TZ)
-    start = datetime.fromisoformat(args.start).replace(tzinfo=TZ)
-    end = min(datetime.fromisoformat(args.end_exclusive).replace(tzinfo=TZ), now)
-    if start < datetime(2026, 10, 6, tzinfo=TZ) or end > datetime(2026, 10, 13, tzinfo=TZ):
-        raise ValueError("日期超出本轮已授权的最近七天范围")
-    if start >= end:
-        raise ValueError("时间范围无效")
+    start, end = collection_period(args.start, args.end_exclusive, now)
+    if not (SOURCE / "exporter_core.py").is_file():
+        raise ValueError("未找到微信采集组件，请按dependencies/微信采集依赖.md配置本机采集环境")
+    if not PRIOR_ACCOUNT_BINDING.is_file():
+        raise ValueError("未配置本机微信授权绑定，请在private/wechat_binding.json中设置已授权账号")
     account = json.loads(PRIOR_ACCOUNT_BINDING.read_text(encoding="utf-8-sig"))
     root = Path(account["db_dir"]).resolve()
     selected = (root / account["account"]).resolve()

@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "platform": "windows-x64",
+  "locked_on": "2026-10-12",
+  "components": [
+    {
+      "id": "python",
+      "name": "CPython embeddable",
+      "version": "3.13.16",
+      "url": "https://www.python.org/ftp/python/3.13.16/python-3.13.16-embed-amd64.zip",
+      "archive_filename": "python-3.13.16-embed-amd64.zip",
+      "archive_sha256": "97dae5274cc54867065e8d5a3226e48c35017ed332a0fdb0e27d5b5821961297",
+      "archive_bytes": 11439094,
+      "strip_prefix": "",
+      "target": "vendor/python",
+      "license": {
+        "path": "LICENSE.txt",
+        "sha256": "62bec384df47b0328307db41455ff6ea2559e5546b394ac69148561b21703120",
+        "description": "PSF license and bundled third-party notices"
+      },
+      "source": "https://www.python.org/ftp/python/3.13.16/",
+      "verification": "SHA256 matches digest declared by official Sigstore bundle; full certificate signature verification not performed"
+    },
+    {
+      "id": "chromium",
+      "name": "Chrome for Testing headless shell",
+      "version": "155.0.8059.39",
+      "url": "https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.39/win64/chrome-headless-shell-win64.zip",
+      "archive_filename": "chrome-headless-shell-155.0.8059.39-win64.zip",
+      "archive_sha256": "20798f7c51a22def0b3d02e526a8f52e7ee2c7eddcde9d81a4c23f618e8b5436",
+      "archive_bytes": 124737213,
+      "strip_prefix": "chrome-headless-shell-win64/",
+      "target": "vendor/chromium",
+      "license": {
+        "path": "LICENSE.headless_shell",
+        "sha256": "1b6e83846a68f8f0a383057c78d180d58ec11a0abfcba380f11d5c2f4b45b273",
+        "description": "Chromium BSD license and bundled third-party notices"
+      },
+      "source": "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json",
+      "verification": "SHA256 measured after HTTPS download from official Chrome for Testing CDN"
+    }
+  ]
+}
