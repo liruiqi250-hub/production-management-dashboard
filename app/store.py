@@ -28,11 +28,11 @@ def password_hash(password, salt):
 
 
 class Store:
-    def __init__(self, workspace):
+    def __init__(self, workspace, *, database_name="production_V0.2.0.sqlite3"):
         self.workspace = Path(workspace)
         self.private = self.workspace / "private"
         self.private.mkdir(parents=True, exist_ok=True)
-        self.path = self.private / "production_V0.2.0.sqlite3"
+        self.path = self.private / database_name
         with self.connect() as conn:
             conn.executescript("""
             CREATE TABLE IF NOT EXISTS users(
@@ -169,7 +169,7 @@ class Store:
         with self.connect() as conn:
             row = conn.execute("SELECT role FROM users WHERE username=?", (username,)).fetchone()
             if not row or row["role"] == "admin":
-                raise ValueError("不能修改李睿琪管理账号或不存在的账号")
+                raise ValueError("不能修改管理员账号或不存在的账号")
             fields, values = [], []
             for key, value in data.items():
                 fields.append(key + "=?")
@@ -182,7 +182,7 @@ class Store:
         with self.connect() as conn:
             user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
             if not user or user["role"] == "admin":
-                raise ValueError("李睿琪管理账号请使用本人修改密码入口")
+                raise ValueError("管理员账号请使用本人修改密码入口")
             password, salt = secrets.token_urlsafe(15), secrets.token_hex(16)
             conn.execute("UPDATE users SET salt=?,password_hash=?,must_change_password=1 WHERE username=?", (salt, password_hash(password, salt), username))
             conn.execute("DELETE FROM sessions WHERE username=?", (username,))

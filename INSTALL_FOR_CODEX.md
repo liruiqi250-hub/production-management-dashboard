@@ -1,4 +1,10 @@
-# 交给接收电脑 Codex 的安装说明（V0.2.8）
+# 彩灯安装先读 V0.3.0
+
+收到 lantern-dashboard 包时，按 docs/lantern-start-here.txt 和 docs/lantern-installation.md 部署独立彩灯系统，使用 "启动彩灯看板_V0.3.0.cmd" / "scripts/start_lantern.ps1"，默认8770端口。不要复制旧系统private、密码或微信绑定；不要套用下文生产看板的8769入口或原群清单。首次建立管理员江红（jianghong）以及跟单黄钰萌（huangyumeng）、田秀玲（tianxiuling），各自随机初始密码并首次改密。
+
+当前交付的手工项目/四工序/出货功能可独立使用。微信和语音组件已随完整包提供；指定彩灯群绑定与真实采集、阿里邮箱授权与邮件归属、固定模板套打和定时任务需分别配置验收，不能把组件存在当成业务接通。
+
+# 交给接收电脑 Codex 的安装说明（V0.3.0）
 
 请用中文操作和报告结果。先阅读本文件、AGENTS.md和`docs/Codex安装验收.md`。用户已授权安装该项目；优先使用包内组件，无需另装Python、Node、pip或临时下载语音模型。
 
@@ -6,13 +12,13 @@
 
 如果用户只是查看办公室看板或让自己的Codex总结生产数据：使用办公室当前内网网址登录，并由本人生成自己的只读Codex令牌，按README的API接口读取。无需在每位同事电脑上建立空台账或重复采集微信；令牌只存当地私有位置，不发给别人或上传GitHub。
 
-如果本机作为看板服务器或迁移接替办公室电脑：下载私有仓库最新Release的`production-dashboard-V0.2.8-full-windows-x64.zip`及同名`.sha256`。GitHub自带的Source code ZIP不包含运行组件。核验下载包SHA256后解压至本机可写的中文/空格目录也可使用；不要解压到微信数据目录。对应Release的第三方源码附件用于许可与重建，正常运行无需解压该源码附件。
+如果本机作为看板服务器或迁移接替办公室电脑：下载私有仓库最新Release的`production-dashboard-V0.3.0-full-windows-x64.zip`及同名`.sha256`。GitHub自带的Source code ZIP不包含运行组件。核验下载包SHA256后解压至本机可写的中文/空格目录也可使用；不要解压到微信数据目录。对应Release的第三方源码附件用于许可与重建，正常运行无需解压该源码附件。
 
 ## 安装与启动
 
 1. 确认Windows 10/11 x64、磁盘空间及包内SHA256SUMS.json。运行包内`vendor/python/python.exe -X utf8 scripts/doctor_installation.py --json --require-wechat`，读取JSON和退出码。首次缺少本机微信绑定是“需配置”，不能写成组件损坏或采集已成功。
-2. 运行`检查完整安装.cmd`，再运行`启动生产看板_V0.2.8.cmd`。也可通过`powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File scripts/start_dashboard_V0.2.0.ps1 -NoBrowser`启动。若Windows标记下载文件为阻止，核验来源与哈希后只解除此解压目录内文件的阻止，不更改全局执行策略。
-3. 服务健康检查应返回V0.2.8且workspace_id与本目录对应；核对启动器显示的内网地址，不沿用原电脑固定IP。新副本为空台账，初始账号文件由本机首次启动生成，首次登录后本人改密。更新已有部署必须先备份本机private及业务材料，不重置用户密码、不覆盖人工结果。
+2. 运行`检查完整安装.cmd`，再运行`启动生产看板_V0.3.0.cmd`。也可通过`powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File scripts/start_dashboard_V0.2.0.ps1 -NoBrowser`启动。若Windows标记下载文件为阻止，核验来源与哈希后只解除此解压目录内文件的阻止，不更改全局执行策略。
+3. 服务健康检查应返回V0.3.0且workspace_id与本目录对应；核对启动器显示的内网地址，不沿用原电脑固定IP。新副本为空台账，初始账号文件由本机首次启动生成，首次登录后本人改密。更新已有部署必须先备份本机private及业务材料，不重置用户密码、不覆盖人工结果。
 4. 实际登录、手机布局、日报及周报下载分别验收。其它设备用当前办公室内网地址连接；若确因防火墙被拦，确认当前受信任网络和具体端口后仅配置该端口规则，不关闭防火墙、不开放公网。
 
 ## 配置本机微信采集

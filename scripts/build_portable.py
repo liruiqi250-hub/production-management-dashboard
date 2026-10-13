@@ -206,7 +206,8 @@ def write_zip(root: Path, output: Path) -> None:
         raise
 
 
-def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = False) -> dict:
+def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = False,
+                 profile: str = "production") -> dict:
     source = source.resolve()
     files = collect_files(source, _tracked(source))
     try:
@@ -216,7 +217,10 @@ def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = 
         raise BundleError("VERSION 与依赖锁文件必须先加入 Git 跟踪白名单") from exc
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise BundleError("VERSION 必须是三段数字版本号")
-    if f"启动生产看板_V{version}.cmd" not in files:
+    if profile not in {"production", "lantern"}:
+        raise BundleError("运行包用途无效")
+    launcher = f"启动{'彩灯' if profile == 'lantern' else '生产'}看板_V{version}.cmd"
+    if launcher not in files:
         raise BundleError("缺少与 VERSION 一致的已跟踪启动入口")
     cache = _safe_path(source, "runtime/dependency_cache")
     archives = [(item, obtain_archive(item, cache, offline=offline)) for item in lock["components"]]
@@ -224,7 +228,7 @@ def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = 
     temp_parent.mkdir(parents=True, exist_ok=True)
     output_dir = _safe_path(source, f"outputs/V{version}")
     output_dir.mkdir(parents=True, exist_ok=True)
-    basename = f"production-dashboard-V{version}-{'full-' if include_wechat else ''}windows-x64"
+    basename = f"{'lantern' if profile == 'lantern' else 'production'}-dashboard-V{version}-{'full-' if include_wechat else ''}windows-x64"
     output = _safe_path(output_dir, basename + ".zip")
     with tempfile.TemporaryDirectory(prefix="build_", dir=temp_parent) as temporary:
         root = Path(temporary) / basename
@@ -233,6 +237,11 @@ def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = 
             destination = _safe_path(root, name)
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(data)
+        if profile == "lantern":
+            guide = files.get("docs/lantern-start-here.txt")
+            if guide is None:
+                raise BundleError("缺少彩灯快速部署说明")
+            (root / "开始使用_彩灯.txt").write_bytes(guide)
         for item, archive in archives:
             extract_component(archive, item, root)
         if include_wechat:
@@ -262,7 +271,7 @@ def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = 
     digest = sha256_file(output)
     checksum = output.with_suffix(".zip.sha256")
     checksum.write_text(f"{digest}  {output.name}\n", encoding="ascii", newline="\n")
-    return {"version": version, "flavor": "full" if include_wechat else "core", "archive": str(output), "sha256": digest,
+    return {"version": version, "profile": profile, "flavor": "full" if include_wechat else "core", "archive": str(output), "sha256": digest,
             "bytes": output.stat().st_size, "files": len(manifest["files"]) + 1,
             "checksum": str(checksum)}
 
@@ -272,9 +281,10 @@ def main() -> int:
     parser.add_argument("--workspace", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--offline", action="store_true", help="只使用已校验的本机依赖缓存")
     parser.add_argument("--with-wechat", action="store_true", help="额外打包微信采集、媒体解码和离线语音模型")
+    parser.add_argument("--profile", choices=("production", "lantern"), default="production", help="独立彩灯运行包使用lantern")
     args = parser.parse_args()
     try:
-        result = build_bundle(args.workspace, offline=args.offline, include_wechat=args.with_wechat)
+        result = build_bundle(args.workspace, offline=args.offline, include_wechat=args.with_wechat, profile=args.profile)
     except (BundleError, PublishError, OSError, ValueError, zipfile.BadZipFile) as exc:
         message = str(exc) if isinstance(exc, (BundleError, PublishError)) else "网络或文件处理失败，请检查官方源、缓存和磁盘权限"
         print(f"便携包构建失败：{message}", file=sys.stderr)
