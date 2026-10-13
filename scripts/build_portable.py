@@ -15,9 +15,9 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-if __package__:
-    from .publish_github import PublishError, _relative_name, _safe_path, _tracked, collect_files
-else:
+try:
+    from scripts.publish_github import PublishError, _relative_name, _safe_path, _tracked, collect_files
+except ModuleNotFoundError:
     from publish_github import PublishError, _relative_name, _safe_path, _tracked, collect_files
 
 
@@ -206,7 +206,7 @@ def write_zip(root: Path, output: Path) -> None:
         raise
 
 
-def build_bundle(source: Path, *, offline: bool = False) -> dict:
+def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = False) -> dict:
     source = source.resolve()
     files = collect_files(source, _tracked(source))
     try:
@@ -224,7 +224,7 @@ def build_bundle(source: Path, *, offline: bool = False) -> dict:
     temp_parent.mkdir(parents=True, exist_ok=True)
     output_dir = _safe_path(source, f"outputs/V{version}")
     output_dir.mkdir(parents=True, exist_ok=True)
-    basename = f"production-dashboard-V{version}-windows-x64"
+    basename = f"production-dashboard-V{version}-{'full-' if include_wechat else ''}windows-x64"
     output = _safe_path(output_dir, basename + ".zip")
     with tempfile.TemporaryDirectory(prefix="build_", dir=temp_parent) as temporary:
         root = Path(temporary) / basename
@@ -235,12 +235,34 @@ def build_bundle(source: Path, *, offline: bool = False) -> dict:
             destination.write_bytes(data)
         for item, archive in archives:
             extract_component(archive, item, root)
+        if include_wechat:
+            try:
+                from scripts.bundle_wechat_runtime import build_wechat_runtime, refresh_installation_records
+                from scripts.build_media_runtime import build_media_runtime
+            except ModuleNotFoundError:
+                from bundle_wechat_runtime import build_wechat_runtime, refresh_installation_records
+                from build_media_runtime import build_media_runtime
+            try:
+                build_wechat_runtime(root, cache / "wechat", offline=offline, source=source)
+                build_media_runtime(root, cache, offline=offline, source=source)
+                refresh_installation_records(root)
+            except RuntimeError as exc:
+                raise BundleError("微信或媒体组件构建失败，请检查依赖锁、许可及离线缓存") from exc
         manifest = write_manifest(root, version=version, lock=lock)
+        if include_wechat:
+            manifest["flavor"] = "full-wechat-offline-asr"
+            manifest["additional_locks"] = {
+                name: {"sha256": hashlib.sha256(data).hexdigest()}
+                for name, data in files.items()
+                if name.startswith("dependencies/") and name.endswith(".lock.json")
+                and name != "dependencies/windows-x64.lock.json"
+            }
+            (root / "SHA256SUMS.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
         write_zip(root, output)
     digest = sha256_file(output)
     checksum = output.with_suffix(".zip.sha256")
     checksum.write_text(f"{digest}  {output.name}\n", encoding="ascii", newline="\n")
-    return {"version": version, "archive": str(output), "sha256": digest,
+    return {"version": version, "flavor": "full" if include_wechat else "core", "archive": str(output), "sha256": digest,
             "bytes": output.stat().st_size, "files": len(manifest["files"]) + 1,
             "checksum": str(checksum)}
 
@@ -249,9 +271,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--offline", action="store_true", help="只使用已校验的本机依赖缓存")
+    parser.add_argument("--with-wechat", action="store_true", help="额外打包微信采集、媒体解码和离线语音模型")
     args = parser.parse_args()
     try:
-        result = build_bundle(args.workspace, offline=args.offline)
+        result = build_bundle(args.workspace, offline=args.offline, include_wechat=args.with_wechat)
     except (BundleError, PublishError, OSError, ValueError, zipfile.BadZipFile) as exc:
         message = str(exc) if isinstance(exc, (BundleError, PublishError)) else "网络或文件处理失败，请检查官方源、缓存和磁盘权限"
         print(f"便携包构建失败：{message}", file=sys.stderr)

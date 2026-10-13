@@ -15,8 +15,9 @@ from typing import Iterable
 DEFAULT_REPO = "https://github.com/liruiqi250-hub/production-management-dashboard"
 TEXT_SUFFIXES = {".py", ".js", ".ts", ".css", ".html", ".json", ".md", ".txt",
                  ".ps1", ".cmd", ".bat", ".toml", ".yaml", ".yml", ".csv",
-                 ".ini", ".cfg", ".xml"}
-ROOT_FILES = {".gitignore", "AGENTS.md", "README.md", "CHANGELOG.md", "VERSION"}
+                 ".ini", ".cfg", ".xml", ".sh", ".cmake"}
+ROOT_FILES = {".gitignore", "AGENTS.md", "README.md", "CHANGELOG.md", "VERSION", "INSTALL_FOR_CODEX.md",
+              "检查完整安装.cmd", "配置微信采集.cmd"}
 CODE_DIRS = {"app", "web", "scripts", "tests", "docs", "automation", "dependencies"}
 EXCLUDED_DIRS = {"outputs", "private", "acquisition", "analysis", "runtime",
                  "node_modules", "__pycache__", ".git"}

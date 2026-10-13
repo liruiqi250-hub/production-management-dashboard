@@ -1,0 +1,552 @@
+{
+  "schema": 1,
+  "platform": "windows-x64",
+  "sources": [
+    {
+      "filename": "ffmpeg-8.0.1.tar.xz",
+      "url": "https://ffmpeg.org/releases/ffmpeg-8.0.1.tar.xz",
+      "sha256": "05ee0b03119b45c0bdb4df654b96802e909e0a752f72e4fe3794f487229e5a41",
+      "size": 11388848,
+      "source_modifications": []
+    },
+    {
+      "filename": "libsndfile-1.2.2.tar.xz",
+      "url": "https://github.com/libsndfile/libsndfile/releases/download/1.2.2/libsndfile-1.2.2.tar.xz",
+      "sha256": "3799ca9924d3125038880367bf1468e53a1b7e3686a934f098b7e1d286cdb80e",
+      "size": 730760,
+      "source_modifications": []
+    },
+    {
+      "filename": "sherpa-onnx-v1.13.6-source.zip",
+      "url": "https://codeload.github.com/k2-fsa/sherpa-onnx/zip/refs/tags/v1.13.6",
+      "sha256": "47bedfe88c4731d8e446ad2b441863655c0b11094501bab9ad616be58f03ee83",
+      "size": 15256587,
+      "git_commit": "1cb484af5e69d3c7803c1eb0b3b5ab8041e0e911"
+    }
+  ],
+  "native_dependencies": [
+    {
+      "url": "https://github.com/chriskohlhoff/asio/archive/refs/tags/asio-1-24-0.tar.gz",
+      "filename": "asio-asio-1-24-0.tar.gz",
+      "expected_sha256": "cbcaaba0f66722787b1a7c33afe1befb3a012b5af3ad7da7ff0f6b8c9b7a8a5b",
+      "recipe": "sherpa-onnx-1.13.6/cmake/asio.cmake",
+      "size": 2902485,
+      "sha256": "cbcaaba0f66722787b1a7c33afe1befb3a012b5af3ad7da7ff0f6b8c9b7a8a5b",
+      "download_url": "https://codeload.github.com/chriskohlhoff/asio/tar.gz/refs/tags/asio-1-24-0"
+    },
+    {
+      "url": "https://github.com/likle/cargs/archive/refs/tags/v1.0.3.tar.gz",
+      "filename": "cargs-v1.0.3.tar.gz",
+      "expected_sha256": "ddba25bd35e9c6c75bc706c126001b8ce8e084d40ef37050e6aa6963e836eb8b",
+      "recipe": "sherpa-onnx-1.13.6/cmake/cargs.cmake",
+      "size": 41253,
+      "sha256": "ddba25bd35e9c6c75bc706c126001b8ce8e084d40ef37050e6aa6963e836eb8b"
+    },
+    {
+      "url": "https://gitlab.com/libeigen/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz",
+      "filename": "eigen-eigen-5.0.1.tar.gz",
+      "expected_sha256": "e9c326dc8c05cd1e044c71f30f1b2e34a6161a3b6ecf445d56b53ff1669e3dec",
+      "recipe": "sherpa-onnx-1.13.6/cmake/eigen.cmake",
+      "size": 2967272,
+      "sha256": "e9c326dc8c05cd1e044c71f30f1b2e34a6161a3b6ecf445d56b53ff1669e3dec"
+    },
+    {
+      "url": "https://github.com/csukuangfj/espeak-ng/archive/ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+      "filename": "espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+      "expected_sha256": "e4e262cbe34f7fe21f91f1ba3397f2728e1f30eafbae7853f2b753a9ed13f0dd",
+      "recipe": "sherpa-onnx-1.13.6/cmake/espeak-ng-for-piper.cmake",
+      "size": 18011501,
+      "sha256": "e4e262cbe34f7fe21f91f1ba3397f2728e1f30eafbae7853f2b753a9ed13f0dd"
+    },
+    {
+      "url": "https://github.com/google/googletest/archive/refs/tags/v1.13.0.tar.gz",
+      "filename": "googletest-v1.13.0.tar.gz",
+      "expected_sha256": "ad7fdba11ea011c1d925b3289cf4af2c66a352e18d4c7264392fead75e919363",
+      "recipe": "sherpa-onnx-1.13.6/cmake/googletest.cmake",
+      "size": 862871,
+      "sha256": "ad7fdba11ea011c1d925b3289cf4af2c66a352e18d4c7264392fead75e919363",
+      "download_url": "https://codeload.github.com/google/googletest/tar.gz/refs/tags/v1.13.0"
+    },
+    {
+      "url": "https://github.com/csukuangfj/hclust-cpp/archive/refs/tags/2026-02-25.tar.gz",
+      "filename": "hclust-cpp-2026-02-25.tar.gz",
+      "expected_sha256": "8f14e024c709d73afb40ae69cb22de4b73dba67cbce40f2e518813da8139ab56",
+      "recipe": "sherpa-onnx-1.13.6/cmake/hclust-cpp.cmake",
+      "size": 22523,
+      "sha256": "8f14e024c709d73afb40ae69cb22de4b73dba67cbce40f2e518813da8139ab56"
+    },
+    {
+      "url": "https://github.com/nlohmann/json/archive/refs/tags/v3.12.0.tar.gz",
+      "filename": "json-v3.12.0.tar.gz",
+      "expected_sha256": "4b92eb0c06d10683f7447ce9406cb97cd4b453be18d7279320f7b2f025c10187",
+      "recipe": "sherpa-onnx-1.13.6/cmake/json.cmake",
+      "size": 9678593,
+      "sha256": "4b92eb0c06d10683f7447ce9406cb97cd4b453be18d7279320f7b2f025c10187"
+    },
+    {
+      "url": "https://github.com/k2-fsa/kaldi-decoder/archive/refs/tags/v0.3.0.tar.gz",
+      "filename": "kaldi-decoder-v0.3.0.tar.gz",
+      "expected_sha256": "b9f34cfb4fd3b1344100eead79ef4d37aa15962274b9e3056de345021f76a1b0",
+      "recipe": "sherpa-onnx-1.13.6/cmake/kaldi-decoder.cmake",
+      "size": 51199,
+      "sha256": "b9f34cfb4fd3b1344100eead79ef4d37aa15962274b9e3056de345021f76a1b0"
+    },
+    {
+      "url": "https://github.com/csukuangfj/kaldi-native-fbank/archive/refs/tags/v1.22.3.tar.gz",
+      "filename": "kaldi-native-fbank-v1.22.3.tar.gz",
+      "expected_sha256": "9176cc66fc7ce1edf85cf355b06e320c57db6297df74277f575183468893cf61",
+      "recipe": "sherpa-onnx-1.13.6/cmake/kaldi-native-fbank.cmake",
+      "size": 71144,
+      "sha256": "9176cc66fc7ce1edf85cf355b06e320c57db6297df74277f575183468893cf61"
+    },
+    {
+      "url": "https://github.com/csukuangfj/openfst/archive/refs/tags/v1.8.5-2026-07-09.tar.gz",
+      "filename": "openfst-v1.8.5-2026-07-09.tar.gz",
+      "expected_sha256": "2ff712a32952fcb01d351121a6bc8ccf4fdc6b2aa06ce8df2b3095dedd518c0e",
+      "recipe": "sherpa-onnx-1.13.6/cmake/openfst.cmake",
+      "size": 1501685,
+      "sha256": "2ff712a32952fcb01d351121a6bc8ccf4fdc6b2aa06ce8df2b3095dedd518c0e",
+      "download_url": "https://codeload.github.com/csukuangfj/openfst/tar.gz/refs/tags/v1.8.5-2026-07-09"
+    },
+    {
+      "url": "https://github.com/csukuangfj/piper-phonemize/archive/f3ff95afc03640bc1399e113e83361192a2fafb4.zip",
+      "filename": "piper-phonemize-f3ff95afc03640bc1399e113e83361192a2fafb4.zip",
+      "expected_sha256": "d9cca4e2bdc7d6dd8dffb96a4668283dbd3f77a9c194a3e530c1e8eba9406a5d",
+      "recipe": "sherpa-onnx-1.13.6/cmake/piper-phonemize.cmake",
+      "size": 9805962,
+      "sha256": "d9cca4e2bdc7d6dd8dffb96a4668283dbd3f77a9c194a3e530c1e8eba9406a5d"
+    },
+    {
+      "url": "http://files.portaudio.com/archives/pa_stable_v190700_20210406.tgz",
+      "filename": "portaudio-pa_stable_v190700_20210406.tgz",
+      "expected_sha256": "47efbf42c77c19a05d22e627d42873e991ec0c1357219c0d74ce6a2948cb2def",
+      "recipe": "sherpa-onnx-1.13.6/cmake/portaudio.cmake",
+      "size": 1462695,
+      "sha256": "47efbf42c77c19a05d22e627d42873e991ec0c1357219c0d74ce6a2948cb2def"
+    },
+    {
+      "url": "https://github.com/pybind/pybind11/archive/refs/tags/v3.0.0.tar.gz",
+      "filename": "pybind11-v3.0.0.tar.gz",
+      "expected_sha256": "453b1a3e2b266c3ae9da872411cadb6d693ac18063bd73226d96cfb7015a200c",
+      "recipe": "sherpa-onnx-1.13.6/cmake/pybind11.cmake",
+      "size": 915234,
+      "sha256": "453b1a3e2b266c3ae9da872411cadb6d693ac18063bd73226d96cfb7015a200c"
+    },
+    {
+      "url": "https://github.com/zaphoyd/websocketpp/archive/b9aeec6eaf3d5610503439b4fae3581d9aff08e8.zip",
+      "filename": "websocketpp-b9aeec6eaf3d5610503439b4fae3581d9aff08e8.zip",
+      "expected_sha256": "1385135ede8191a7fbef9ec8099e3c5a673d48df0c143958216cd1690567f583",
+      "recipe": "sherpa-onnx-1.13.6/cmake/websocketpp.cmake",
+      "size": 996004,
+      "sha256": "1385135ede8191a7fbef9ec8099e3c5a673d48df0c143958216cd1690567f583"
+    },
+    {
+      "url": "https://codeload.github.com/microsoft/onnxruntime/zip/refs/tags/v1.27.1",
+      "filename": "onnxruntime-v1.27.1-production-source.zip",
+      "recipe": "ONNXRuntime official corresponding source",
+      "size": 54935612,
+      "sha256": "31c24bdb8aa2027b0adc0cf316b51b6add6d8abedeb6aacaff8685c772b6690f",
+      "original_archive": {
+        "filename": "onnxruntime-v1.27.1-source.zip",
+        "sha256": "8112bf2879bfa0c9c18be283a61c2af2e1d3e8ff121eb728c839fb72dec6c169",
+        "size": 292182038
+      },
+      "exclusions_manifest": "PRODUCTION_SOURCE_EXCLUSIONS.json",
+      "excluded_binary_test_fixtures": 995
+    },
+    {
+      "id": "kissfft",
+      "url": "https://codeload.github.com/mborgerding/kissfft/zip/febd4caeed32e33ad8b2e0bb5ea77542c40f18ec",
+      "filename": "kissfft-febd4caeed32e33ad8b2e0bb5ea77542c40f18ec.zip",
+      "sha256": "497103e664168ebe39580b757adbe616f6cf85a16572af581ca7bc42d0ab13fd",
+      "recipe": "kaldi-native-fbank-1.22.3/cmake/kissfft.cmake",
+      "scope": "required native DSP source",
+      "size": 74252,
+      "license_members": [
+        "kissfft-febd4caeed32e33ad8b2e0bb5ea77542c40f18ec/COPYING",
+        "kissfft-febd4caeed32e33ad8b2e0bb5ea77542c40f18ec/LICENSES/Unlicense"
+      ]
+    },
+    {
+      "id": "kaldifst",
+      "url": "https://codeload.github.com/k2-fsa/kaldifst/tar.gz/refs/tags/v1.8.0",
+      "filename": "kaldifst-1.8.0.tar.gz",
+      "sha256": "3f247b7e5a2409071202f5e2bc6200060f66728c0a3443c03923ad2723e040b3",
+      "recipe": "kaldi-decoder-0.3.0/cmake/kaldifst.cmake",
+      "scope": "required native Kaldi decoder source",
+      "size": 172147,
+      "license_members": [
+        "kaldifst-1.8.0/LICENSE"
+      ]
+    },
+    {
+      "id": "simple-sentencepiece",
+      "url": "https://codeload.github.com/pkufool/simple-sentencepiece/tar.gz/refs/tags/v0.7",
+      "filename": "simple-sentencepiece-0.7.tar.gz",
+      "sha256": "1748a822060a35baa9f6609f84efc8eb54dc0e74b9ece3d82367b7119fdc75af",
+      "recipe": "sherpa-onnx-1.13.6/cmake/simple-sentencepiece.cmake",
+      "scope": "required native tokenization source",
+      "size": 355335,
+      "license_members": [
+        "simple-sentencepiece-0.7/LICENSE"
+      ]
+    },
+    {
+      "id": "eigen-3.4.0",
+      "url": "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
+      "filename": "eigen-3.4.0.tar.gz",
+      "sha256": "8586084f71f9bde545ee7fa6d00288b264a2b7ac3607b974e54d13e7162c1c72",
+      "recipe": "kaldi-decoder-0.3.0/cmake/eigen.cmake",
+      "scope": "nested build source; top-level sherpa may override with Eigen5.0.1",
+      "size": 2705005,
+      "license_members": [
+        "eigen-3.4.0/COPYING.APACHE",
+        "eigen-3.4.0/COPYING.BSD",
+        "eigen-3.4.0/COPYING.GPL",
+        "eigen-3.4.0/COPYING.LGPL",
+        "eigen-3.4.0/COPYING.MINPACK",
+        "eigen-3.4.0/COPYING.MPL2",
+        "eigen-3.4.0/COPYING.README",
+        "eigen-3.4.0/bench/btl/COPYING",
+        "eigen-3.4.0/scripts/relicense.py",
+        "eigen-3.4.0/unsupported/Eigen/src/LevenbergMarquardt/CopyrightMINPACK.txt"
+      ]
+    },
+    {
+      "id": "sonic",
+      "url": "https://codeload.github.com/waywardgeek/sonic/zip/fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104",
+      "filename": "sonic-fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104.zip",
+      "sha256": "d7c5a715f574a4a2a5afe970f489d3950bcd5229f1bed3f0e010a5413957ec20",
+      "recipe": "espeak-ng-ed530aa113046142eb5115cf2fc9157854d0ffe1/cmake/deps.cmake",
+      "scope": "optional espeak source; disabled in distributed sherpa build",
+      "size": 5343518,
+      "license_members": [
+        "sonic-fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104/LICENSE",
+        "sonic-fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104/debian/copyright"
+      ]
+    },
+    {
+      "id": "nested-openfst",
+      "url": "https://codeload.github.com/csukuangfj/openfst/tar.gz/refs/tags/v1.8.5-2026-04-10",
+      "filename": "openfst-1.8.5-2026-04-10.tar.gz",
+      "sha256": "c3549940384cbe4fa9f18c2bcfb1bfbd0a80492fd1b0bfa27433cee395a6a199",
+      "recipe": "kaldifst-1.8.0/cmake/openfst.cmake",
+      "scope": "nested source; parent sherpa overrides with July10 revision",
+      "size": 1500835,
+      "license_members": [
+        "openfst-1.8.5-2026-04-10/COPYING"
+      ]
+    },
+    {
+      "id": "nested-pybind11",
+      "url": "https://codeload.github.com/pybind/pybind11/zip/5bc0943ed96836f46489f53961f6c438d2935357",
+      "filename": "pybind11-5bc0943ed96836f46489f53961f6c438d2935357.zip",
+      "sha256": "ff65a1a8c9e6ceec11e7ed9d296f2e22a63e9ff0c4264b3af29c72b4f18f25a0",
+      "recipe": "simple-sentencepiece-0.7/cmake/pybind11.cmake",
+      "scope": "nested optional Python source; disabled or overridden by parent pybind11 3.0.0",
+      "size": 860168,
+      "license_members": [
+        "pybind11-5bc0943ed96836f46489f53961f6c438d2935357/LICENSE"
+      ]
+    }
+  ],
+  "build_tools": [
+    {
+      "filename": "llvm-mingw-20261006-ucrt-x86_64.zip",
+      "url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20261006/llvm-mingw-20261006-ucrt-x86_64.zip",
+      "sha256": "317492c456aa27ee607a5919f1d2d38dcdc1112516a24d0bf4b00d078f52d17a",
+      "size": 190836485,
+      "distributed": false
+    },
+    {
+      "filename": "cmake-4.4.4-windows-x86_64.zip",
+      "url": "https://github.com/Kitware/CMake/releases/download/v4.4.4/cmake-4.4.4-windows-x86_64.zip",
+      "sha256": "bace36e94b31c68ab6fa295f26dfa11219e0701cf7c94b0284a7d1cb13dac536",
+      "size": 54400562,
+      "distributed": false
+    },
+    {
+      "filename": "make-4.4.1-2-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/make-4.4.1-2-x86_64.pkg.tar.zst",
+      "sha256": "2408af61717dae87b00c855b132769a125c708907fc94a46bb16dae076113e5c",
+      "size": 519783,
+      "distributed": false
+    }
+  ],
+  "license_files": [
+    {
+      "source_archive": "asio-asio-1-24-0.tar.gz",
+      "source_member": "asio-asio-1-24-0/asio/COPYING",
+      "path": "third-party/asio-asio-1-24-0.tar.gz/0000.txt",
+      "sha256": "2d312781ba7ca3f5b494aec3bcca5cfbb69b7302838b2a7595d1537fc494457f"
+    },
+    {
+      "source_archive": "asio-asio-1-24-0.tar.gz",
+      "source_member": "asio-asio-1-24-0/asio/LICENSE_1_0.txt",
+      "path": "third-party/asio-asio-1-24-0.tar.gz/0001.txt",
+      "sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+    },
+    {
+      "source_archive": "cargs-v1.0.3.tar.gz",
+      "source_member": "cargs-1.0.3/LICENSE.md",
+      "path": "third-party/cargs-v1.0.3.tar.gz/0002.txt",
+      "sha256": "e144db54f3cbd2110ccdd99cda1eaef528eb89a2f97bbee46989a7ba6b5292a3"
+    },
+    {
+      "source_archive": "eigen-eigen-5.0.1.tar.gz",
+      "source_member": "eigen-5.0.1/COPYING.APACHE",
+      "path": "third-party/eigen-eigen-5.0.1.tar.gz/0003.txt",
+      "sha256": "03379001a7b12a2ec997a25554247d985270b353c10d5bafee9ac8d6519820b7"
+    },
+    {
+      "source_archive": "eigen-eigen-5.0.1.tar.gz",
+      "source_member": "eigen-5.0.1/COPYING.BSD",
+      "path": "third-party/eigen-eigen-5.0.1.tar.gz/0004.txt",
+      "sha256": "51928dce36213c5333ba3172e847d735d4c6e9b7ff2722a326c49067155b82eb"
+    },
+    {
+      "source_archive": "eigen-eigen-5.0.1.tar.gz",
+      "source_member": "eigen-5.0.1/COPYING.MINPACK",
+      "path": "third-party/eigen-eigen-5.0.1.tar.gz/0005.txt",
+      "sha256": "c87b7f8ee88f6195e91743820c00354833583aef091b72e2d4a49c8e28e798a0"
+    },
+    {
+      "source_archive": "eigen-eigen-5.0.1.tar.gz",
+      "source_member": "eigen-5.0.1/COPYING.MPL2",
+      "path": "third-party/eigen-eigen-5.0.1.tar.gz/0006.txt",
+      "sha256": "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172"
+    },
+    {
+      "source_archive": "eigen-eigen-5.0.1.tar.gz",
+      "source_member": "eigen-5.0.1/COPYING.README",
+      "path": "third-party/eigen-eigen-5.0.1.tar.gz/0007.txt",
+      "sha256": "db640ff2bd90c6abd6a4d3fbb351e0ee4d555417cf840492054d1cbb2ea85644"
+    },
+    {
+      "source_archive": "eigen-eigen-5.0.1.tar.gz",
+      "source_member": "eigen-5.0.1/LICENSE",
+      "path": "third-party/eigen-eigen-5.0.1.tar.gz/0008.txt",
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+    },
+    {
+      "source_archive": "eigen-eigen-5.0.1.tar.gz",
+      "source_member": "eigen-5.0.1/bench/btl/COPYING",
+      "path": "third-party/eigen-eigen-5.0.1.tar.gz/0009.txt",
+      "sha256": "b8d0e2bcbf36f6af3cdbf94055ad2ea675d5a19fc623eb0ec82febb2b08e719b"
+    },
+    {
+      "source_archive": "espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+      "source_member": "espeak-ng-ed530aa113046142eb5115cf2fc9157854d0ffe1/COPYING",
+      "path": "third-party/espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip/0010.txt",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "source_archive": "espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+      "source_member": "espeak-ng-ed530aa113046142eb5115cf2fc9157854d0ffe1/COPYING.APACHE",
+      "path": "third-party/espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip/0011.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "source_archive": "espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+      "source_member": "espeak-ng-ed530aa113046142eb5115cf2fc9157854d0ffe1/COPYING.BSD2",
+      "path": "third-party/espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip/0012.txt",
+      "sha256": "a8b0c1c7d7af6c0415c068be8cf373799d1a42b0707b79dc4ccfcaf593cd902d"
+    },
+    {
+      "source_archive": "espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+      "source_member": "espeak-ng-ed530aa113046142eb5115cf2fc9157854d0ffe1/COPYING.UCD",
+      "path": "third-party/espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip/0013.txt",
+      "sha256": "be029c50df83105a810e391778b6edcb522d6cb4b4e142332aca54437a499bf7"
+    },
+    {
+      "source_archive": "espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+      "source_member": "espeak-ng-ed530aa113046142eb5115cf2fc9157854d0ffe1/src/ucd-tools/COPYING",
+      "path": "third-party/espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip/0014.txt",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "source_archive": "espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+      "source_member": "espeak-ng-ed530aa113046142eb5115cf2fc9157854d0ffe1/src/ucd-tools/COPYING.UCD",
+      "path": "third-party/espeak-ng-for-piper-ed530aa113046142eb5115cf2fc9157854d0ffe1.zip/0015.txt",
+      "sha256": "be029c50df83105a810e391778b6edcb522d6cb4b4e142332aca54437a499bf7"
+    },
+    {
+      "source_archive": "googletest-v1.13.0.tar.gz",
+      "source_member": "googletest-1.13.0/LICENSE",
+      "path": "third-party/googletest-v1.13.0.tar.gz/0016.txt",
+      "sha256": "9702de7e4117a8e2b20dafab11ffda58c198aede066406496bef670d40a22138"
+    },
+    {
+      "source_archive": "hclust-cpp-2026-02-25.tar.gz",
+      "source_member": "hclust-cpp-2026-02-25/LICENSE",
+      "path": "third-party/hclust-cpp-2026-02-25.tar.gz/0017.txt",
+      "sha256": "e361d842da1d290351860ad6dcce2673a1e42e4f873a3ae1ff4eb92c6adaa882"
+    },
+    {
+      "source_archive": "json-v3.12.0.tar.gz",
+      "source_member": "json-3.12.0/LICENSE.MIT",
+      "path": "third-party/json-v3.12.0.tar.gz/0018.txt",
+      "sha256": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603"
+    },
+    {
+      "source_archive": "json-v3.12.0.tar.gz",
+      "source_member": "json-3.12.0/docs/mkdocs/docs/home/license.md",
+      "path": "third-party/json-v3.12.0.tar.gz/0019.txt",
+      "sha256": "d4b7ed0261c2c840e9ccc7d483b3b659bfddc8be797f3007da080f0c4a78d960"
+    },
+    {
+      "source_archive": "kaldi-decoder-v0.3.0.tar.gz",
+      "source_member": "kaldi-decoder-0.3.0/LICENSE",
+      "path": "third-party/kaldi-decoder-v0.3.0.tar.gz/0020.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "source_archive": "kaldi-native-fbank-v1.22.3.tar.gz",
+      "source_member": "kaldi-native-fbank-1.22.3/LICENSE",
+      "path": "third-party/kaldi-native-fbank-v1.22.3.tar.gz/0021.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "source_archive": "openfst-v1.8.5-2026-07-09.tar.gz",
+      "source_member": "openfst-1.8.5-2026-07-09/COPYING",
+      "path": "third-party/openfst-v1.8.5-2026-07-09.tar.gz/0022.txt",
+      "sha256": "4300529197035fd3452350718a0b8cee984e9412c9932d7f35fcde849fc97a4b"
+    },
+    {
+      "source_archive": "piper-phonemize-f3ff95afc03640bc1399e113e83361192a2fafb4.zip",
+      "source_member": "piper-phonemize-f3ff95afc03640bc1399e113e83361192a2fafb4/LICENSE.md",
+      "path": "third-party/piper-phonemize-f3ff95afc03640bc1399e113e83361192a2fafb4.zip/0023.txt",
+      "sha256": "13746d509d74e55ea2265fbef204bb7cdbf84a8315b0207e988326cb54387028"
+    },
+    {
+      "source_archive": "piper-phonemize-f3ff95afc03640bc1399e113e83361192a2fafb4.zip",
+      "source_member": "piper-phonemize-f3ff95afc03640bc1399e113e83361192a2fafb4/licenses/uni-algo/LICENSE.md",
+      "path": "third-party/piper-phonemize-f3ff95afc03640bc1399e113e83361192a2fafb4.zip/0024.txt",
+      "sha256": "c55648b02873556d6ab2de14938998101fda3a0f293337542af9196435def318"
+    },
+    {
+      "source_archive": "portaudio-pa_stable_v190700_20210406.tgz",
+      "source_member": "portaudio/LICENSE.txt",
+      "path": "third-party/portaudio-pa_stable_v190700_20210406.tgz/0025.txt",
+      "sha256": "ec52a1952d701f94e5135719a47376da4ee0b4a0201f1cafb49f61db6480ac3d"
+    },
+    {
+      "source_archive": "portaudio-pa_stable_v190700_20210406.tgz",
+      "source_member": "portaudio/bindings/cpp/COPYING",
+      "path": "third-party/portaudio-pa_stable_v190700_20210406.tgz/0026.txt",
+      "sha256": "3ec8d97acf149e39aa440f39eb1126a6ec5089e2864cbecdf2d2952bc0a5ed83"
+    },
+    {
+      "source_archive": "portaudio-pa_stable_v190700_20210406.tgz",
+      "source_member": "portaudio/doc/src/license.dox",
+      "path": "third-party/portaudio-pa_stable_v190700_20210406.tgz/0027.txt",
+      "sha256": "712b59060e2d982fa5701a10a73c190b45f66a3b5057d1afff0ed3181e5611b0"
+    },
+    {
+      "source_archive": "pybind11-v3.0.0.tar.gz",
+      "source_member": "pybind11-3.0.0/LICENSE",
+      "path": "third-party/pybind11-v3.0.0.tar.gz/0028.txt",
+      "sha256": "83965b843b98f670d3a85bd041ed4b372c8ec50d7b4a5995a83ac697ba675dcb"
+    },
+    {
+      "source_archive": "websocketpp-b9aeec6eaf3d5610503439b4fae3581d9aff08e8.zip",
+      "source_member": "websocketpp-b9aeec6eaf3d5610503439b4fae3581d9aff08e8/COPYING",
+      "path": "third-party/websocketpp-b9aeec6eaf3d5610503439b4fae3581d9aff08e8.zip/0029.txt",
+      "sha256": "5ba81a1ed402517dce2581fa2d4042baf6a9c8ca0fe94fa6a7043ce6ab23064f"
+    },
+    {
+      "source_archive": "kissfft-febd4caeed32e33ad8b2e0bb5ea77542c40f18ec.zip",
+      "source_member": "kissfft-febd4caeed32e33ad8b2e0bb5ea77542c40f18ec/COPYING",
+      "path": "third-party/kissfft-febd4caeed32e33ad8b2e0bb5ea77542c40f18ec.zip/0030.txt",
+      "sha256": "a2840585f8411be8e6826a31ef15ae65c950bd74a2437a73b013398a934ad0c6"
+    },
+    {
+      "source_archive": "kaldifst-1.8.0.tar.gz",
+      "source_member": "kaldifst-1.8.0/LICENSE",
+      "path": "third-party/kaldifst-1.8.0.tar.gz/0031.txt",
+      "sha256": "a682d6efd1ee5dee08a8e405c233c2c198ea70ae0718129daa83ab58cfe31c5d"
+    },
+    {
+      "source_archive": "simple-sentencepiece-0.7.tar.gz",
+      "source_member": "simple-sentencepiece-0.7/LICENSE",
+      "path": "third-party/simple-sentencepiece-0.7.tar.gz/0032.txt",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "source_archive": "eigen-3.4.0.tar.gz",
+      "source_member": "eigen-3.4.0/COPYING.APACHE",
+      "path": "third-party/eigen-3.4.0.tar.gz/0033.txt",
+      "sha256": "03379001a7b12a2ec997a25554247d985270b353c10d5bafee9ac8d6519820b7"
+    },
+    {
+      "source_archive": "eigen-3.4.0.tar.gz",
+      "source_member": "eigen-3.4.0/COPYING.BSD",
+      "path": "third-party/eigen-3.4.0.tar.gz/0034.txt",
+      "sha256": "51928dce36213c5333ba3172e847d735d4c6e9b7ff2722a326c49067155b82eb"
+    },
+    {
+      "source_archive": "eigen-3.4.0.tar.gz",
+      "source_member": "eigen-3.4.0/COPYING.GPL",
+      "path": "third-party/eigen-3.4.0.tar.gz/0035.txt",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "source_archive": "eigen-3.4.0.tar.gz",
+      "source_member": "eigen-3.4.0/COPYING.LGPL",
+      "path": "third-party/eigen-3.4.0.tar.gz/0036.txt",
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+    },
+    {
+      "source_archive": "eigen-3.4.0.tar.gz",
+      "source_member": "eigen-3.4.0/COPYING.MINPACK",
+      "path": "third-party/eigen-3.4.0.tar.gz/0037.txt",
+      "sha256": "c87b7f8ee88f6195e91743820c00354833583aef091b72e2d4a49c8e28e798a0"
+    },
+    {
+      "source_archive": "eigen-3.4.0.tar.gz",
+      "source_member": "eigen-3.4.0/COPYING.MPL2",
+      "path": "third-party/eigen-3.4.0.tar.gz/0038.txt",
+      "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+    },
+    {
+      "source_archive": "eigen-3.4.0.tar.gz",
+      "source_member": "eigen-3.4.0/COPYING.README",
+      "path": "third-party/eigen-3.4.0.tar.gz/0039.txt",
+      "sha256": "c83230b770f17ef1386ea1fd3681271dd98aa93646bdbfb5bff3a1b7050fff9d"
+    },
+    {
+      "source_archive": "eigen-3.4.0.tar.gz",
+      "source_member": "eigen-3.4.0/bench/btl/COPYING",
+      "path": "third-party/eigen-3.4.0.tar.gz/0040.txt",
+      "sha256": "b8d0e2bcbf36f6af3cdbf94055ad2ea675d5a19fc623eb0ec82febb2b08e719b"
+    },
+    {
+      "source_archive": "sonic-fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104.zip",
+      "source_member": "sonic-fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104/LICENSE",
+      "path": "third-party/sonic-fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104.zip/0041.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "source_archive": "sonic-fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104.zip",
+      "source_member": "sonic-fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104/debian/copyright",
+      "path": "third-party/sonic-fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104.zip/0042.txt",
+      "sha256": "026566d332f98046db3d774f08b1f7f0a77c29ac838e4fc1508cd88a7ad8cd26"
+    },
+    {
+      "source_archive": "openfst-1.8.5-2026-04-10.tar.gz",
+      "source_member": "openfst-1.8.5-2026-04-10/COPYING",
+      "path": "third-party/openfst-1.8.5-2026-04-10.tar.gz/0043.txt",
+      "sha256": "4300529197035fd3452350718a0b8cee984e9412c9932d7f35fcde849fc97a4b"
+    },
+    {
+      "source_archive": "pybind11-5bc0943ed96836f46489f53961f6c438d2935357.zip",
+      "source_member": "pybind11-5bc0943ed96836f46489f53961f6c438d2935357/LICENSE",
+      "path": "third-party/pybind11-5bc0943ed96836f46489f53961f6c438d2935357.zip/0044.txt",
+      "sha256": "83965b843b98f670d3a85bd041ed4b372c8ec50d7b4a5995a83ac697ba675dcb"
+    }
+  ],
+  "ffmpeg_version_configuration": "ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers\nbuilt with clang version 23.1.3 (https://github.com/llvm/llvm-project.git 0d261d1ca552c95a8f007e061c787ac7132fbcbc)\nconfiguration: --prefix=/c/tmp/production_ffmpeg_media/ffmpeg-install --target-os=mingw32 --arch=x86_64 --cc=x86_64-w64-mingw32-clang --cxx=x86_64-w64-mingw32-clang++ --ar=llvm-ar --ranlib=llvm-ranlib --nm=llvm-nm --strip=llvm-strip --windres=x86_64-w64-mingw32-windres --enable-shared --disable-static --disable-gpl --disable-nonfree --disable-version3 --disable-autodetect --disable-x86asm --disable-doc --disable-debug --disable-network --disable-avdevice --disable-ffplay --disable-hwaccels --disable-decoders --enable-decoder='aac,aac_fixed,mp3,mp3float,mp2,pcm_s16le,pcm_s16be,pcm_f32le,pcm_f64le,pcm_u8,flac,vorbis,opus,alac,h264,hevc,mpeg4,mpeg2video,mjpeg,rawvideo,ffv1' --disable-demuxers --enable-demuxer='aac,mp3,wav,flac,ogg,mov,matroska,avi,image2,image2pipe,pcm_s16le,pcm_f32le' --disable-encoders --enable-encoder='pcm_s16le,pcm_s16be,pcm_f32le,pcm_f64le,rawvideo,mjpeg,png,ffv1' --disable-muxers --enable-muxer='wav,pcm_s16le,pcm_f32le,image2,image2pipe,matroska,null' --disable-protocols --enable-protocol='file,pipe' --disable-bzlib --disable-iconv --disable-lzma --disable-zlib\nlibavutil      60.  8.100 / 60.  8.100\nlibavcodec     62. 11.100 / 62. 11.100\nlibavformat    62.  3.100 / 62.  3.100\nlibavfilter    11.  4.100 / 11.  4.100\nlibswscale      9.  1.100 /  9.  1.100\nlibswresample   6.  1.100 /  6.  1.100\n\nExiting with exit code 0\n",
+  "libsndfile_version": "1.2.2",
+  "sherpa_git_commit": "1cb484af5e69d3c7803c1eb0b3b5ab8041e0e911",
+  "onnxruntime_version": "1.27.1"
+}

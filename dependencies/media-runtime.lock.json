@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "platform": "windows-x64",
+  "components": [
+    {
+      "id": "ffmpeg",
+      "archive_filename": "ffmpeg-8.0.1-lgpl-win64.zip",
+      "archive_sha256": "9ccb247cf0cb81a403839de83936736afbc27a82c7b11c9deaeb63be1dc653a1",
+      "archive_bytes": 5505468,
+      "release_tag": "v0.2.7",
+      "license": "LGPL-2.1-or-later",
+      "files": {
+        "bin/avcodec-62.dll": "6aa120f392bbaf12362e2c3386a2003e7c66a0849380810c493e4aec8a139fc5",
+        "bin/avfilter-11.dll": "28da5268892df643385582e85373ca61aa006b6afdb755977c2d07df26db6a3e",
+        "bin/avformat-62.dll": "d5b5a3463c241cce1949c8179809a2619c69e246a7d52665fb023d89bb9ca903",
+        "bin/avutil-60.dll": "5f3de71fe160500b6efadeba93dccfe7a6a3e00a12ad9471ed78745f1f5f67eb",
+        "bin/ffmpeg.exe": "55af5c0487c907e027cf63b1aab0204e457096a2dcf1ae856d2d32ba37eb7b5c",
+        "bin/ffprobe.exe": "dc5204bdee9d8f7277a108aa7d93345ebba6d51c208b32408b480394232c1c77",
+        "bin/swresample-6.dll": "4bd2ec2c99d999609637384ad326d337191d7098898da156f55e49bc6cd57744",
+        "bin/swscale-9.dll": "c14ce78bda2f45a7d64f509ca5649103d452e288b1d1e4c6df8c85848cbc22e7",
+        "licenses/COPYING.LGPLv2.1": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30",
+        "licenses/COPYING.LGPLv3": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+        "licenses/LICENSE.md": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af",
+        "licenses/LLVM-RUNTIME-LICENSE.txt": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+        "licenses/MinGW-RUNTIME-LICENSE.txt": "1db8da07b436c68833c0673ffee3d9fcb2526047f3820b81661865dfedc79a1f",
+        "BUILD_CONFIGURATION.txt": "802e3abca492f8bcb2efa01ac3df90e80de8a73f81cf3e5a898b529a3a6865a3"
+      }
+    },
+    {
+      "id": "libsndfile",
+      "archive_filename": "libsndfile-1.2.2-minimal-win64.zip",
+      "archive_sha256": "82bb532b0a2b08102c58c26cbc6789e29776d4556539b5c14168215b88f862c9",
+      "archive_bytes": 353969,
+      "release_tag": "v0.2.7",
+      "license": "LGPL-2.1-or-later",
+      "files": {
+        "libsndfile_x64.dll": "9096a6373aaf5d121250bb2890bf666d4c1af54c689adb89661ca466dd48c482",
+        "COPYING": "ad01ea5cd2755f6048383c8d54c88459cd6fcb17757c5c8892f8c5ea060f6140",
+        "LLVM-RUNTIME-LICENSE.txt": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+        "MinGW-RUNTIME-LICENSE.txt": "1db8da07b436c68833c0673ffee3d9fcb2526047f3820b81661865dfedc79a1f"
+      }
+    }
+  ],
+  "corresponding_sources": {
+    "archive_filename": "media-corresponding-sources-ffmpeg8.0.1-sndfile1.2.2-sherpa1.13.6.zip",
+    "archive_sha256": "671f60c6526d88e927b789d3a98e8f2151f8bcd4700a90527586c70c74a36e9c",
+    "archive_bytes": 137994474,
+    "release_tag": "v0.2.7"
+  }
+}

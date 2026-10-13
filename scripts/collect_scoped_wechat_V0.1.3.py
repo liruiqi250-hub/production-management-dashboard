@@ -16,13 +16,9 @@ from pathlib import Path
 
 VERSION = "0.1.3"
 WORKSPACE = Path(__file__).resolve().parents[1]
-LEGACY_RUNTIME = Path(r"D:\360MoveData\Users\ASUS\Documents\ChatGPT\售后\automation\exporter\v1.3.4")
-RUNTIME = Path(os.environ["DINO_WECHAT_RUNTIME"]) if os.environ.get("DINO_WECHAT_RUNTIME") else (
-    WORKSPACE / "vendor" / "wechat" if (WORKSPACE / "vendor" / "wechat").is_dir() else LEGACY_RUNTIME)
+RUNTIME = Path(os.environ["DINO_WECHAT_RUNTIME"]) if os.environ.get("DINO_WECHAT_RUNTIME") else WORKSPACE / "vendor" / "wechat"
 SOURCE = RUNTIME / "source" / "wechat-chat-export-1.3.4"
-PRIOR_ACCOUNT_BINDING = Path(os.environ["DINO_WECHAT_BINDING"]) if os.environ.get("DINO_WECHAT_BINDING") else (
-    WORKSPACE / "private" / "wechat_binding.json" if (WORKSPACE / "private" / "wechat_binding.json").is_file()
-    else LEGACY_RUNTIME.parents[1] / "private" / "monthly_binding_candidate_V1.1.0.private.json")
+PRIOR_ACCOUNT_BINDING = Path(os.environ["DINO_WECHAT_BINDING"]) if os.environ.get("DINO_WECHAT_BINDING") else WORKSPACE / "private" / "wechat_binding.json"
 TZ = timezone(timedelta(hours=8))
 GROUPS = [
     "生产资料群", "彩灯传动沟通群", "李婷订单沟通群", "曾霞订单沟通群",
@@ -181,9 +177,16 @@ def main():
     selected = (root / account["account"]).resolve()
     if selected.parent != root or not (selected / "db_storage").is_dir():
         raise ValueError("已知账号数据目录不可用")
+    bundled_ffmpeg = RUNTIME / "ffmpeg" / "bin" / "ffmpeg.exe"
+    if bundled_ffmpeg.is_file():
+        os.environ["IMAGEIO_FFMPEG_EXE"] = str(bundled_ffmpeg)
     sys.path.insert(0, str(SOURCE))
     with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
         import exporter_core as core
+    bundled_model_dir = SOURCE / "tools" / "asr" / "sensevoice"
+    portable_runtime = (RUNTIME / "python" / "python.exe").is_file()
+    if portable_runtime and args.transcribe_voices and not all((bundled_model_dir / name).is_file() for name in ("model.int8.onnx", "tokens.txt")):
+        raise ValueError("完整包中的语音模型缺失，请先运行检查完整安装.cmd")
     manifest = {"collector_version": VERSION, "phase": args.phase,
                 "started_at": now.isoformat(timespec="seconds"), "timezone": "Asia/Shanghai",
                 "start_inclusive": start.isoformat(), "end_exclusive": end.isoformat(),
@@ -193,6 +196,9 @@ def main():
     sink = io.StringIO()
     db = None
     originals = (core.WeChatDB, core.find_contact, core.load_rows, core.fmt_time, core._persistent_asr_cache_path)
+    original_model_dir = core._persistent_sensevoice_dir
+    if portable_runtime:
+        core._persistent_sensevoice_dir = lambda: bundled_model_dir
     core._persistent_asr_cache_path = lambda: out / "private" / "voice_asr_cache_V0.1.3.json"
     def progress(message):
         # 第三方诊断不输出，仅打印经替换的导出进度。
@@ -274,6 +280,7 @@ def main():
         manifest.update({"status": "failed", "error_class": type(exc).__name__, "error": str(exc).replace(str(root), "[本地目录]").replace(account["account"], "[本地绑定]")})
     finally:
         core.WeChatDB, core.find_contact, core.load_rows, core.fmt_time, core._persistent_asr_cache_path = originals
+        core._persistent_sensevoice_dir = original_model_dir
         db = None
         gc.collect()
         cleanup_ok, _ = core._cleanup_sensitive_workdir(workdir)
