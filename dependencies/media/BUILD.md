@@ -1,8 +1,8 @@
 # 对应源码与重建材料
 
-运行本软件无需编译。两份二进制依赖 ZIP 与对应源码 ZIP 在同一私有 GitHub Release v0.2.7 提供：
+运行本软件无需编译。两份二进制依赖 ZIP 与对应源码 ZIP 在同一私有 GitHub Release v0.2.8 提供：
 
-https://github.com/liruiqi250-hub/production-management-dashboard/releases/tag/v0.2.7
+https://github.com/liruiqi250-hub/production-management-dashboard/releases/tag/v0.2.8
 
 源码附件名：`media-corresponding-sources-ffmpeg8.0.1-sndfile1.2.2-sherpa1.13.6.zip`。`SOURCE_MANIFEST.json` 记录原始来源、精确版本、归档 SHA-256；`media-runtime.lock.json` 记录所发二进制逐文件 SHA-256。FFmpeg、libsndfile、Sherpa及其固定依赖的原始源码归档保持完整；FFmpeg 与 libsndfile 的源码差异为空，只有构建配置不同。ONNX Runtime 附件保留全部编译源码、头文件、构建脚本及许可，仅排除995个二进制测试样本；其内`PRODUCTION_SOURCE_EXCLUSIONS.json`逐项记录排除内容和原归档校验值，实际代码未修改。
 

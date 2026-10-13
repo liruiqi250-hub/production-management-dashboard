@@ -13,3 +13,5 @@ vendor/
 .env
 outputs/V*/
 *.zip
+!dependencies/media/third-party/*.zip/
+!dependencies/media/third-party/*.zip/*.txt

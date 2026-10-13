@@ -7,7 +7,7 @@
       "archive_filename": "ffmpeg-8.0.1-lgpl-win64.zip",
       "archive_sha256": "9ccb247cf0cb81a403839de83936736afbc27a82c7b11c9deaeb63be1dc653a1",
       "archive_bytes": 5505468,
-      "release_tag": "v0.2.7",
+      "release_tag": "v0.2.8",
       "license": "LGPL-2.1-or-later",
       "files": {
         "bin/avcodec-62.dll": "6aa120f392bbaf12362e2c3386a2003e7c66a0849380810c493e4aec8a139fc5",
@@ -31,7 +31,7 @@
       "archive_filename": "libsndfile-1.2.2-minimal-win64.zip",
       "archive_sha256": "82bb532b0a2b08102c58c26cbc6789e29776d4556539b5c14168215b88f862c9",
       "archive_bytes": 353969,
-      "release_tag": "v0.2.7",
+      "release_tag": "v0.2.8",
       "license": "LGPL-2.1-or-later",
       "files": {
         "libsndfile_x64.dll": "9096a6373aaf5d121250bb2890bf666d4c1af54c689adb89661ca466dd48c482",
@@ -43,8 +43,8 @@
   ],
   "corresponding_sources": {
     "archive_filename": "media-corresponding-sources-ffmpeg8.0.1-sndfile1.2.2-sherpa1.13.6.zip",
-    "archive_sha256": "671f60c6526d88e927b789d3a98e8f2151f8bcd4700a90527586c70c74a36e9c",
-    "archive_bytes": 137994474,
-    "release_tag": "v0.2.7"
+    "archive_sha256": "e911b08250488e83eeeab3460096026c28e19bccaa26551fffa4f23a95c9e157",
+    "archive_bytes": 137994475,
+    "release_tag": "v0.2.8"
   }
 }

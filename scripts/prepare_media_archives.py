@@ -33,6 +33,7 @@ def main():
     parser.add_argument('--sndfile-source',type=Path,required=True)
     args=parser.parse_args()
     cache=args.cache.resolve(); notices=ROOT/'dependencies/media'
+    release_tag='v'+(ROOT/'VERSION').read_text(encoding='utf-8-sig').strip()
     ffmpeg=subprocess.check_output([str(args.ffmpeg_bin/'ffmpeg.exe'),'-version'],encoding='utf-8')
     if 'ffmpeg version 8.0.1 ' not in ffmpeg or '--enable-gpl' in ffmpeg or '--enable-nonfree' in ffmpeg:
         raise ValueError('FFmpeg固定版本及许可配置不符合要求')
@@ -122,13 +123,13 @@ cd "$1"
         ('ffmpeg','ffmpeg-8.0.1-lgpl-win64.zip',ff_files,'LGPL-2.1-or-later'),
         ('libsndfile','libsndfile-1.2.2-minimal-win64.zip',snd_files,'LGPL-2.1-or-later')):
         path=cache/filename; archive(path,files)
-        components.append(dict(id=ident,archive_filename=filename,archive_sha256=digest(path),archive_bytes=path.stat().st_size,release_tag='v0.2.7',license=license_name,files={name:hashlib.sha256(data).hexdigest() for name,data in files.items()}))
+        components.append(dict(id=ident,archive_filename=filename,archive_sha256=digest(path),archive_bytes=path.stat().st_size,release_tag=release_tag,license=license_name,files={name:hashlib.sha256(data).hexdigest() for name,data in files.items()}))
     companion_files={'sources/'+item['filename']:(cache/item['filename']).read_bytes() for item in sources}
     companion_files.update({'sources/sherpa-dependencies/'+name:(cache/'sherpa-sources'/name).read_bytes() for name in unique})
     companion_files.update({'materials/'+p.relative_to(notices).as_posix():p.read_bytes() for p in notices.rglob('*') if p.is_file()})
     companion=cache/'media-corresponding-sources-ffmpeg8.0.1-sndfile1.2.2-sherpa1.13.6.zip'
     archive(companion,companion_files)
-    lock=dict(schema=1,platform='windows-x64',components=components,corresponding_sources=dict(archive_filename=companion.name,archive_sha256=digest(companion),archive_bytes=companion.stat().st_size,release_tag='v0.2.7'))
+    lock=dict(schema=1,platform='windows-x64',components=components,corresponding_sources=dict(archive_filename=companion.name,archive_sha256=digest(companion),archive_bytes=companion.stat().st_size,release_tag=release_tag))
     (ROOT/'dependencies/media-runtime.lock.json').write_text(json.dumps(lock,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     for path in [cache/item['archive_filename'] for item in components]+[companion]:
         path.with_suffix('.zip.sha256').write_text(f'{digest(path)}  {path.name}\n',encoding='ascii')
