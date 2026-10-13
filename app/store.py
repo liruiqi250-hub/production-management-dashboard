@@ -228,6 +228,8 @@ class Store:
 
     def import_snapshot(self, snapshot, connection=None):
         from app.normalize import validate_snapshot
+        from app.office import office_policy, constrain_owner
+        office = office_policy(self.workspace)
         validate_snapshot(snapshot)
         inserted = updated = 0
         with (nullcontext(connection) if connection is not None else self.connect()) as conn:
@@ -237,7 +239,7 @@ class Store:
                 if current:
                     old = json.loads(current["base_json"])
                     from app.ownership import preserve_assignment
-                    preserve_assignment(old, merged)
+                    preserve_assignment(old, merged, office=office)
                     evidence = {e["locator"]: e for e in old.get("evidence", [])}
                     evidence.update({e["locator"]: e for e in item.get("evidence", [])})
                     merged["evidence"] = list(evidence.values())
@@ -252,9 +254,11 @@ class Store:
                         for key in ("progress_at", "progress_note", "progress_locator"):
                             if key in old:
                                 merged[key] = old[key]
+                    constrain_owner(merged, office)
                     conn.execute("UPDATE items SET base_json=? WHERE id=?", (json.dumps(merged, ensure_ascii=False), item["id"]))
                     updated += 1
                 else:
+                    constrain_owner(merged, office)
                     conn.execute("INSERT INTO items(id,base_json) VALUES(?,?)", (item["id"], json.dumps(merged, ensure_ascii=False)))
                     inserted += 1
             metadata = {k: v for k, v in snapshot.items() if k != "items"}
@@ -266,6 +270,8 @@ class Store:
         from app.briefs import list_summary
         from app.ownership import decorate_owner
         from app.workdays import priority
+        from app.office import office_policy
+        office = office_policy(self.workspace)
         with self.connect() as conn:
             meta = conn.execute("SELECT value_json FROM metadata WHERE key='snapshot'").fetchone()
             result = json.loads(meta[0]) if meta else {"version": "0.2.0", "coverage": {}, "period": {}, "generated_at": None}
@@ -288,12 +294,13 @@ class Store:
                 base["evidence"] = base.get("evidence", []) + manual_evidence
                 base["list_summary"] = list_summary(base, briefs.get(base["id"]))
                 base["priority"] = priority(base)
-                decorate_owner(base, overrides)
+                decorate_owner(base, overrides, office=office)
                 items.append(base)
             result["items"] = sorted(items, key=lambda i: (i["status"] == "已解决", not i["priority"]["urgent"], i["last_seen"]), reverse=False)
             if result.get("coverage", {}).get("limitations"):
                 result["coverage"]["limitations"] = [str(note).replace("副厂", "李睿琪") for note in result["coverage"]["limitations"]]
             result["team"] = {"跟单": ["张英", "银小芹"], "机械设计": ["王星", "郭逸", "张利伟"], "李睿琪": ["本人绘图 / 协调"]}
+            result["office_staff"] = office["names"]
             return result
 
     def set_list_summaries(self, summaries):
@@ -336,7 +343,8 @@ class Store:
                 raise KeyError("事项不存在")
             base, overrides = json.loads(row["base_json"]), json.loads(row["override_json"])
             from app.ownership import manual_owner
-            manual_owner(base, overrides, changes, {"username": username, "display_name": actor["display_name"]})
+            from app.office import office_policy
+            manual_owner(base, overrides, changes, {"username": username, "display_name": actor["display_name"]}, office=office_policy(self.workspace))
             note = changes.pop("closure_note", "") or ""
             if note.strip() in {"好", "好的", "收到", "OK", "ok", "安排", "已阅", "查看"}:
                 raise ValueError("请填写实际处理内容，收悉或安排不能重新计时")
@@ -386,7 +394,8 @@ class Store:
                 from app.ownership import manual_owner
                 actor = conn.execute("SELECT display_name FROM users WHERE username=?", (username,)).fetchone()
                 ownership = {"owner": owner, "owner_confirmation": "confirmed"}
-                manual_owner(item, {}, ownership, {"username": username, "display_name": actor[0] if actor else username})
+                from app.office import office_policy
+                manual_owner(item, {}, ownership, {"username": username, "display_name": actor[0] if actor else username}, office=office_policy(self.workspace))
                 item.update(ownership)
             conn.execute("INSERT INTO items(id,base_json) VALUES(?,?)", (item_id, json.dumps(item, ensure_ascii=False)))
             conn.execute("INSERT INTO audit(time,username,action,item_id,details_json) VALUES(?,?,?,?,?)",

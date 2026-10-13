@@ -17,6 +17,8 @@ class AfterSales:
 
     def import_ledger(self, data, source_hash, connection=None):
         import re
+        from app.office import office_policy, constrain_owner
+        office = office_policy(self.store.workspace)
         if not isinstance(data, dict) or not re.fullmatch(r"\d{4}-\d{2}", data.get("period", "")) or not isinstance(data.get("cases"), list):
             raise ValueError("售后台账需有月份与cases列表")
         period = data["period"]
@@ -65,7 +67,7 @@ class AfterSales:
                     if has_owner_basis:
                         row["owner"] = incoming_owner
                     from app.ownership import preserve_assignment
-                    preserve_assignment(previous, row)
+                    preserve_assignment(previous, row, office=office)
                     if previous.get("status") == "完成验收":
                         row["status"] = "完成验收"
                         row["acceptance_note"] = previous.get("acceptance_note")
@@ -75,13 +77,17 @@ class AfterSales:
                     refs = {(e["source_id"], e["source_ref"]): e for e in previous["evidence"] + row["evidence"]}
                     row["evidence"] = list(refs.values())
                     row["source_hashes"] = list(dict.fromkeys(previous.get("source_hashes", [previous["source_sha256"]]) + [source_hash]))
+                    constrain_owner(row, office)
                     conn.execute("UPDATE after_sales SET base_json=? WHERE id=?", (json.dumps(row, ensure_ascii=False), row["id"]))
                 else:
+                    constrain_owner(row, office)
                     conn.execute("INSERT INTO after_sales(id,base_json) VALUES(?,?)", (row["id"], json.dumps(row, ensure_ascii=False)))
         return {"imported": len(prepared), "period": period}
 
     def snapshot(self):
         from app.ownership import decorate_owner
+        from app.office import office_policy
+        office = office_policy(self.store.workspace)
         with self.store.connect() as conn:
             items = []
             for row in conn.execute("SELECT * FROM after_sales"):
@@ -89,13 +95,13 @@ class AfterSales:
                 source_progress = item.get("progress_at")
                 overrides = json.loads(row["override_json"])
                 item.update(overrides)
-                decorate_owner(item, overrides)
+                decorate_owner(item, overrides, office=office)
                 if source_progress and source_progress > (item.get("progress_at") or ""):
                     item["progress_at"] = source_progress
                 item["priority"] = priority(item)
                 items.append(item)
         items.sort(key=lambda i: (i["status"] == "完成验收", not i["priority"]["urgent"], i["id"]))
-        return {"cases": items, "counted": sum(i["include_in_total"] for i in items),
+        return {"cases": items, "office_staff": office["names"], "counted": sum(i["include_in_total"] for i in items),
                 "periods": sorted({i["period"] for i in items}),
                 "note": "已给建议、资料已发、当次恢复不等于完成验收；历史资料需核对当前结果"}
 
@@ -117,7 +123,8 @@ class AfterSales:
                 raise KeyError("售后事项不存在")
             overrides = json.loads(row["override_json"])
             from app.ownership import manual_owner
-            manual_owner(json.loads(row["base_json"]), overrides, changes, actor)
+            from app.office import office_policy
+            manual_owner(json.loads(row["base_json"]), overrides, changes, actor, office=office_policy(self.store.workspace))
             overrides.update({k: v for k, v in changes.items() if k != "progress_note"})
             if note:
                 timestamp = now()

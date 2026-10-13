@@ -258,13 +258,13 @@ class StoreServerTests(unittest.TestCase):
 
     def test_manual_edits_preserved_on_reimport_and_reported_today(self):
         with patch("app.store.now", return_value="2026-10-12T16:00:00+08:00"):
-            self.store.update_item("SYNTHETIC-001", {"owner": "虚构人工负责人", "deadline": "2026-10-14", "status": "处理中"}, "liruiqi")
+            self.store.update_item("SYNTHETIC-001", {"owner": "张英", "deadline": "2026-10-14", "status": "处理中"}, "liruiqi")
         incoming = copy.deepcopy(self.snapshot)
-        incoming["items"][0]["owner"] = "虚构自动负责人"
+        incoming["items"][0]["owner"] = "郭逸"
         incoming["items"][0]["status"] = "待确认"
         self.store.import_snapshot(incoming)
         item = self.store.snapshot()["items"][0]
-        self.assertEqual(item["owner"], "虚构人工负责人")
+        self.assertEqual(item["owner"], "张英")
         self.assertEqual(item["deadline"], "2026-10-14")
         self.assertEqual(item["status"], "处理中")
         self.assertEqual(item["source_last_seen"], "2026-10-07T10:00:00+08:00")
@@ -286,11 +286,11 @@ class StoreServerTests(unittest.TestCase):
 
     def test_liruiqi_can_register_own_drawing_task(self):
         admin = self.login()
-        status, body, _ = self.request("POST", "/api/items", {"title": "虚构机械绘图任务", "category": "任务", "owner": "副厂（本人）", "summary": "虚构说明"}, admin)
+        status, body, _ = self.request("POST", "/api/items", {"title": "虚构机械绘图任务", "category": "任务", "owner": "李睿琪", "summary": "虚构说明"}, admin)
         self.assertEqual(status, 201)
         item = json.loads(body)["item"]
         self.assertEqual(item["source_id"], "manual")
-        self.assertEqual(item["owner"], "副厂（本人）")
+        self.assertEqual(item["owner"], "李睿琪")
         self.assertEqual(item["status"], "待处理")
         self.store.import_snapshot(self.snapshot)
         self.assertIn(item["id"], {x["id"] for x in self.store.snapshot()["items"]})

@@ -61,7 +61,7 @@ class SalesTests(unittest.TestCase):
     def test_owner_only_does_not_reset(self):
         original = self.sales.snapshot()["cases"][0]
         actor = {"username": "synthetic", "display_name": "虚构员工", "role": "editor"}
-        self.sales.update(original["id"], {"owner": "虚构人"}, actor)
+        self.sales.update(original["id"], {"owner": "张英"}, actor)
         self.assertNotIn("progress_at", self.sales.snapshot()["cases"][0])
         with self.assertRaises(ValueError):
             self.sales.update(original["id"], {"status": "完成验收"}, actor)
@@ -74,7 +74,7 @@ class SalesTests(unittest.TestCase):
 
     def test_production_owner_only_and_progress_note(self):
         self.store.import_snapshot(synthetic_snapshot())
-        result = self.store.update_item("SYNTHETIC-001", {"owner": "虚构人员"}, "liruiqi")
+        result = self.store.update_item("SYNTHETIC-001", {"owner": "郭逸"}, "liruiqi")
         self.assertNotIn("progress_at", result)
         result = self.store.update_item("SYNTHETIC-001", {"closure_note": "虚构实质结果"}, "liruiqi")
         self.assertIn("progress_at", result)

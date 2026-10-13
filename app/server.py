@@ -144,7 +144,7 @@ class Handler(BaseHTTPRequestHandler):
             snapshot = self.server.store.snapshot()
             snapshot["after_sales"] = self.server.after_sales.snapshot()
             if path == "/api/v1/items":
-                return self.json({"items": snapshot["items"], "period": snapshot.get("period"), "generated_at": snapshot.get("generated_at")})
+                return self.json({"items": snapshot["items"], "office_staff": snapshot.get("office_staff", []), "period": snapshot.get("period"), "generated_at": snapshot.get("generated_at")})
             return self.json(snapshot)
         if path in {"/api/after-sales", "/api/v1/after-sales"}:
             return self.json(self.server.after_sales.snapshot())

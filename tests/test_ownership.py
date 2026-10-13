@@ -18,7 +18,8 @@ from tests.test_unified_dashboard import ledger
 
 def proposed():
     item = synthetic_snapshot()['items'][0]
-    item['owner'] = item['evidence'][0]['sender']
+    item['evidence'][0]['sender'] = '张英'
+    item['owner'] = '张英'
     item['owner_basis'] = {'kind': 'inferred', 'reason': '虚构主动跟进消息', 'locators': [item['evidence'][0]['locator']]}
     return item
 
@@ -43,7 +44,7 @@ class OwnershipTests(unittest.TestCase):
     def test_assign_requires_name_in_message_and_ai_cannot_claim_manual(self):
         item = proposed(); item['owner_basis']['kind'] = 'assigned'
         with self.assertRaises(ValueError): verify_owner(item)
-        item['evidence'][0]['text'] = '交给虚构测试人员跟进此事'
+        item['evidence'][0]['text'] = '交给张英跟进此事'
         verify_owner(item)
         self.assertIn('原文明示分派', owner_description(item))
         item['owner_basis']['kind'] = 'manual'
@@ -76,13 +77,13 @@ class OwnershipTests(unittest.TestCase):
         self.assertEqual(item['owner_basis']['name'], '李睿琪')
         self.assertEqual(item['owner_basis']['evidence'], old['owner_basis']['evidence'])
         self.assertEqual(item['priority']['since'], old['priority']['since'])
-        self.snapshot['items'][0]['owner'] = '新的虚构AI候选'
+        self.snapshot['items'][0]['owner'] = '李睿琪'
         self.store.import_snapshot(self.snapshot)
         self.assertEqual(self.store.snapshot()['items'][0]['owner'], old['owner'])
         self.assertEqual(self.store.snapshot()['items'][0]['owner_basis']['kind'], 'manual')
 
     def test_manual_change_and_clear_are_audited(self):
-        item = self.store.update_item('SYNTHETIC-001', {'owner': '虚构负责人乙'}, 'liruiqi')
+        item = self.store.update_item('SYNTHETIC-001', {'owner': '郭逸'}, 'liruiqi')
         self.assertEqual(item['owner_basis']['kind'], 'manual')
         self.assertTrue(item['owner_basis']['confirmed'])
         item = self.store.update_item('SYNTHETIC-001', {'owner': None}, 'liruiqi')
@@ -91,8 +92,8 @@ class OwnershipTests(unittest.TestCase):
 
     def test_after_sales_confirm_and_normal_save_are_distinct(self):
         data = ledger();case = data['cases'][0]
-        case['owner'] = '虚构发言人'
-        case['evidence'][0].update(sender='虚构发言人', time='2026-09-30T10:00:00+08:00', text='这个问题我再跟进一下')
+        case['owner'] = '王星'
+        case['evidence'][0].update(sender='王星', time='2026-09-30T10:00:00+08:00', text='这个问题我再跟进一下')
         case['owner_basis'] = {'kind': 'inferred', 'reason': '主动跟进', 'locators': ['dayang|' + case['evidence'][0]['source_ref']]}
         verify_owner(case)
         self.sales.import_ledger(data, '0' * 64)
@@ -103,7 +104,7 @@ class OwnershipTests(unittest.TestCase):
         item = self.sales.update(identity, {'owner_confirmation': 'confirmed'}, self.actor)
         self.assertEqual(item['owner_basis']['kind'], 'manual')
         self.assertEqual(item['priority']['since'], original['priority']['since'])
-        data['cases'][0]['owner'] = '虚构另一人';self.sales.import_ledger(data, '1' * 64)
+        data['cases'][0]['owner'] = '郭逸';self.sales.import_ledger(data, '1' * 64)
         self.assertEqual(self.sales.snapshot()['cases'][0]['owner'], original['owner'])
 
     def test_legacy_sales_without_raw_message_is_not_guessed(self):
@@ -123,7 +124,7 @@ class OwnershipTests(unittest.TestCase):
         item['owner_basis']['checked_at'] = '2026-10-13T10:00:00+08:00'
         historical = build_report(self.snapshot, 'weekly', '2026-10-12')
         self.assertIsNone(historical['items'][0]['owner'])
-        self.assertNotIn('虚构测试人员', str(historical['items'][0]['owner_basis']))
+        self.assertNotIn('张英', str(historical['items'][0]['owner_basis']))
 
     def test_schema_requires_both_scopes_owner_basis(self):
         schema = candidate_schema()['properties']
@@ -136,7 +137,7 @@ class OwnershipTests(unittest.TestCase):
         data['items'][0]['owner_basis']['kind'] = 'assigned'
         self.store.import_snapshot(data)
         new = copy.deepcopy(self.snapshot)
-        new['items'][0]['owner'] = '另一虚构发言人'
+        new['items'][0]['owner'] = '另一王星'
         self.store.import_snapshot(new)
         self.assertEqual(self.store.snapshot()['items'][0]['owner'], data['items'][0]['owner'])
         self.assertEqual(self.store.snapshot()['items'][0]['owner_basis']['kind'], 'assigned')

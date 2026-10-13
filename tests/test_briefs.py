@@ -81,7 +81,7 @@ class ListSummaryTests(unittest.TestCase):
                 self.assertNotEqual(item["list_summary"], "虚构旧的一句摘要")
         with self.subTest(manual_update_masks_last_seen=True):
             with patch("app.store.now", return_value="2026-10-12T16:00:00+08:00"):
-                self.store.update_item(self.item_id, {"owner": "虚构人工负责人"}, "liruiqi")
+                self.store.update_item(self.item_id, {"owner": "张英"}, "liruiqi")
             self.store.set_list_summaries({self.item_id: "人工更新后保存的旧摘要"})
             incoming = copy.deepcopy(self.source)
             incoming["items"][0]["last_seen"] = "2026-10-12T12:00:00+08:00"
