@@ -41,7 +41,7 @@ def decimal_text(value):
 def safe_zip(data):
     package = zipfile.ZipFile(io.BytesIO(data))
     names = package.namelist()
-    if len(names) != len(set(names)) or len(names) > 2000 or sum(x.file_size for x in package.infolist()) > 50 * 1024 * 1024:
+    if len(names) != len(set(names)) or len(names) > 2000 or sum(x.file_size for x in package.infolist()) > 300 * 1024 * 1024:
         package.close()
         raise ValueError('Office文件过大或包含重复部件')
     for name in names:

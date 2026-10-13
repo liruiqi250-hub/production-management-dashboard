@@ -1,6 +1,6 @@
-# 彩灯看板 V0.3.2 独立安装
+# 彩灯看板 V0.3.3 独立安装
 
-快速部署见 `docs/lantern-start-here.txt`，现场Codex步骤见 `docs/lantern-codex-deploy.md`。默认8770端口，双击 `启动彩灯看板_V0.3.2.cmd`。
+快速部署见 `docs/lantern-start-here.txt`，现场Codex步骤见 `docs/lantern-codex-deploy.md`。默认8770端口，双击 `启动彩灯看板_V0.3.3.cmd`。
 
 样式、深色模式、认证权限、个人令牌、后台Codex工具直接复用恐龙看板。彩灯账号、数据库和采集范围独立。江红为销售支持部主管及管理员，同时参与跟单；黄钰萌、田秀玲为跟单，首次随机密码只在新电脑本机生成。
 

@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '0.3.2';
+const VERSION = '0.3.3';
 const STAGES = ['丝架', '装灯', '裱糊', '上色'];
 const STATUSES = ['未开始', '进行中', '已完成'];
 const MERCHANDISERS = ['江红', '黄钰萌', '田秀玲'];
@@ -375,14 +375,14 @@ function openProject(project = null) {
   ]) grid.append((key === 'merchandiser' ? choiceField(label, key, project?.[key], MERCHANDISERS) : field(label, key, project?.[key], config)).wrapper);
   body.append(grid);
   const source = el('section', {class: 'form-section'}); source.append(el('h3', {}, '生产单留存'));
-  const area = el('div', {class: 'upload-area'}), label = el('label', {}, '上传生产单（单个文件最大10MB）'), input = el('input', {type: 'file', accept: '.pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg', 'aria-label': '上传生产单'}), status = el('p', {class: 'upload-status', 'aria-live': 'polite'});
+  const area = el('div', {class: 'upload-area'}), label = el('label', {}, '上传生产单（单个文件最大100MB）'), input = el('input', {type: 'file', accept: '.pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg', 'aria-label': '上传生产单'}), status = el('p', {class: 'upload-status', 'aria-live': 'polite'});
   state.editor.attachment = typeof project?.source_attachment === 'object' ? project.source_attachment.id : (project?.source_attachment || '');
   label.append(input); area.append(label, el('p', {class: 'field-help'}, '上传仅留存原件，字段仍需人工录入。自动识别待真实样本接入。'), status); source.append(area); body.append(source);
   function showAttachment(id, filename) { clear(status); status.append(document.createTextNode(`${filename || '生产单'} · 已留存 `), el('a', {href: '/api/lantern/orders/' + encodeURIComponent(id), download: ''}, '下载原件')); }
   if (state.editor.attachment) showAttachment(state.editor.attachment);
   input.addEventListener('change', async () => {
     const file = input.files[0]; if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { status.textContent = '文件超过10MB，请选择较小的文件。'; input.value = ''; return; }
+    if (file.size > 100 * 1024 * 1024) { status.textContent = '文件超过100MB，请选择较小的文件。'; input.value = ''; return; }
     if (!/\.(pdf|docx?|xlsx?|csv|png|jpe?g)$/i.test(file.name)) { status.textContent = '文件格式不支持，请选择PDF、Office文件、CSV或图片。'; input.value = ''; return; }
     const currentEditor = state.editor; state.uploading = true; $('save-editor').disabled = true; input.disabled = true; status.textContent = '正在上传并留存，请稍候…';
     try {
@@ -543,7 +543,7 @@ async function extractDocument(kind) {
   if (!file) { documentError(kind === 'pi' ? '请先选择PI文件，也可直接手填下方字段。' : '请先选择装箱表，也可直接手填合计字段。'); return; }
   const valid = kind === 'pi' ? /\.(docx|xlsx?|csv|txt)$/i : /\.(xlsx?|csv)$/i;
   if (!valid.test(file.name)) { documentError('文件格式不支持，请按上传栏提示选择文件。'); return; }
-  if (!file.size || file.size > 10 * 1024 * 1024) { documentError('文件须为非空文件，且不超过10MB。'); return; }
+  if (!file.size || file.size > 100 * 1024 * 1024) { documentError('文件须为非空文件，且不超过100MB。'); return; }
   documentBusy(true); documentError(); status.textContent = '正在读取并提取…';
   try {
     const encoded = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1]); reader.onerror = () => reject(new Error('文件读取失败')); reader.readAsDataURL(file); });

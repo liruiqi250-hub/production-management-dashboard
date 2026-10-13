@@ -31,7 +31,7 @@ SHIPMENT_FIELDS = {
     "document_owner": "资料制作员", "customs_delivery": "是否清关派送", "product_category": "产品类别", "notes": "备注",
     "order_no": "订单编号", "project_id": "关联项目ID",
 }
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024
 UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".txt", ".png", ".jpg", ".jpeg"}
 SETUP = {"wechat": "待提供群清单", "email": "阿里企业邮箱待配置", "templates": "待提供固定模板"}
 
@@ -308,7 +308,7 @@ class LanternStore(Store):
         if suffix not in UPLOAD_EXTENSIONS:
             raise ValueError("仅支持PDF、Word、Excel、CSV、PNG或JPG原生产单")
         if not isinstance(content, bytes) or not 0 < len(content) <= MAX_UPLOAD_BYTES:
-            raise ValueError("原生产单附件不能为空且不能超过10MB")
+            raise ValueError("原生产单附件不能为空且不能超过100MB")
         result = {"id": uuid.uuid4().hex, "filename": filename, "bytes": len(content), "sha256": hashlib.sha256(content).hexdigest()}
         destination = self.uploads / (result["id"] + suffix)
         written = False

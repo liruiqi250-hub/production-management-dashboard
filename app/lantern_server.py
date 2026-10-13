@@ -64,7 +64,7 @@ class LanternHandler(SafeHandler):
             raise ValueError("请求需使用JSON格式")
         size = int(self.headers.get("Content-Length", "0"))
         if not 0 < size <= ((MAX_UPLOAD_BYTES + 2) // 3) * 4 + 8192:
-            raise ValueError("原生产单附件不能超过10MB")
+            raise ValueError("原生产单附件不能超过100MB")
         result = json.loads(self.rfile.read(size))
         if not isinstance(result, dict):
             raise ValueError("请求需为JSON对象")
@@ -156,6 +156,13 @@ class LanternHandler(SafeHandler):
             return self.json({"error": "请求来源不被允许"}, 403)
         path = urlparse(self.path).path
         try:
+            upload_user = None
+            if path in {"/api/lantern/orders/upload", "/api/lantern/documents/extract"}:
+                upload_user = self.require(write=True)
+                if not upload_user:
+                    return
+                if upload_user["role"] not in {"admin", "editor"}:
+                    return self.json({"error": "该账号仅有查看权限"}, 403)
             data = self.body()
             if path == "/api/login" and method == "POST":
                 self.fields(data, {"username", "password"})
@@ -175,7 +182,7 @@ class LanternHandler(SafeHandler):
                     self.server.attempts.pop(ip, None)
                 token = result.pop("token")
                 return self.json(result, headers={"Set-Cookie": f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200"})
-            user = self.require(write=True, allow_password_change=method == "POST" and path in {"/api/password", "/api/logout"})
+            user = upload_user or self.require(write=True, allow_password_change=method == "POST" and path in {"/api/password", "/api/logout"})
             if not user:
                 return
             if path in {"/api/lantern/settings/email", "/api/lantern/settings/email/test"} and method == "POST":
@@ -252,7 +259,7 @@ class LanternHandler(SafeHandler):
                     except (binascii.Error, ValueError) as exc:
                         raise ValueError("文件内容编码无效") from exc
                     if not 0 < len(content) <= MAX_UPLOAD_BYTES:
-                        raise ValueError("文件不能为空或超过10MB")
+                        raise ValueError("文件不能为空或超过100MB")
                     from app.lantern_documents import read_rows, extract_pi, extract_packing
                     rows = read_rows(data["filename"], content)
                     result = extract_pi(rows) if data["kind"] == "pi" else extract_packing(rows)

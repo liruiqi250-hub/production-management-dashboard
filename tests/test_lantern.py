@@ -3,6 +3,7 @@ import base64
 import csv
 import http.client
 import io
+import hashlib
 import json
 import tempfile
 import threading
@@ -154,6 +155,30 @@ class LanternTests(unittest.TestCase):
         for filename in ("../secret.csv", "evil.exe", "bad\r\n.csv", "CON.csv"):
             self.assertEqual(self.request("POST", "/api/lantern/orders/upload", {**data, "filename": filename}, credentials)[0], 400)
         self.assertEqual(self.request("POST", "/api/lantern/orders/upload", {**data, "content_base64": "invalid%"}, credentials)[0], 400)
+
+    def test_100mb_http_upload_boundary_and_oversize_rejection(self):
+        from app.lantern_store import MAX_UPLOAD_BYTES
+        self.assertEqual(MAX_UPLOAD_BYTES, 100 * 1024 * 1024)
+        content = b"x" * MAX_UPLOAD_BYTES
+        credentials = self.login()
+        status, _, body = self.request("POST", "/api/lantern/orders/upload", {"filename": "synthetic100.pdf", "content_base64": base64.b64encode(content).decode("ascii")}, credentials)
+        self.assertEqual(status, 201)
+        attachment = json.loads(body)["attachment"]
+        self.assertEqual(attachment["bytes"], MAX_UPLOAD_BYTES)
+        self.assertEqual(attachment["sha256"], hashlib.sha256(content).hexdigest())
+        self.assertEqual(self.store.order_attachment(attachment["id"])[1], content)
+        before = list(self.store.uploads.iterdir())
+        with self.assertRaises(ValueError):
+            self.store.upload_order("synthetic-over-limit.pdf", content + b"x", "jianghong")
+        self.assertEqual(list(self.store.uploads.iterdir()), before)
+
+    def test_large_upload_rejected_before_body_read_without_authorization(self):
+        path = "/api/lantern/orders/upload"
+        headers = {"Content-Type": "application/json", "Content-Length": str(200 * 1024 * 1024)}
+        self.assertEqual(self.request("POST", path, headers=headers)[0], 401)
+        credentials = self.login()
+        self.assertEqual(self.request("POST", path, headers={**headers, "Cookie": credentials["Cookie"]})[0], 403)
+        self.assertEqual(self.request("POST", path, headers={**headers, **credentials})[0], 400)
 
     def test_export_exact_headers_no_formulas_and_date_validation(self):
         self.store.save_shipment({"customer": "=1+1", "documents": "虚构：待确认", "etd": "2026-10-20"}, "jianghong")
