@@ -99,9 +99,6 @@ def codex_options():
     if isinstance(model, str) and re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]{1,80}", model):
         options += ["-c", "model=" + json.dumps(model)]
     effort = config.get("model_reasoning_effort")
-    # 日常整理有16:30目标；仅本次后台调用限制最高强度，不改用户日常Codex配置。
-    if effort in {None, "xhigh", "max", "ultra"}:
-        effort = "high"
     if effort in {"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}:
         options += ["-c", "model_reasoning_effort=" + json.dumps(effort)]
     return options

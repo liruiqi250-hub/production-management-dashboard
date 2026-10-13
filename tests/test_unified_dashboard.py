@@ -109,16 +109,6 @@ class JobTests(unittest.TestCase):
             self.assertIn('model="synthetic-model"', options)
             self.assertFalse(any('must-not-start' in arg for arg in options))
 
-    def test_daily_reasoning_cap_does_not_edit_user_config(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp, "config.toml")
-            original = 'model="synthetic-model"\nmodel_reasoning_effort="ultra"\n'
-            path.write_text(original, encoding="utf-8")
-            with patch.dict("os.environ", {"CODEX_HOME": tmp}):
-                options = codex_options()
-            self.assertIn('model_reasoning_effort="high"', options)
-            self.assertEqual(path.read_text("utf-8"), original)
-
     def test_worker_full_flow_with_synthetic_sources(self):
         from types import SimpleNamespace
         from app.normalize import SOURCE_GROUPS
