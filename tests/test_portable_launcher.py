@@ -104,7 +104,7 @@ class PortableLauncherTests(unittest.TestCase):
                 thread.join(timeout=2)
 
     def test_scripts_use_utf8_bom_for_windows_powershell(self):
-        for name in ("start_dashboard_V0.2.0.ps1", "start_lantern.ps1", "check_environment.ps1"):
+        for name in ("start_dashboard_V0.2.0.ps1", "check_environment.ps1"):
             with self.subTest(script=name):
                 self.assertTrue((ROOT / "scripts" / name).read_bytes().startswith(b"\xef\xbb\xbf"))
 

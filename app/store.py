@@ -28,11 +28,11 @@ def password_hash(password, salt):
 
 
 class Store:
-    def __init__(self, workspace, *, database_name="production_V0.2.0.sqlite3"):
+    def __init__(self, workspace):
         self.workspace = Path(workspace)
         self.private = self.workspace / "private"
         self.private.mkdir(parents=True, exist_ok=True)
-        self.path = self.private / database_name
+        self.path = self.private / "production_V0.2.0.sqlite3"
         with self.connect() as conn:
             conn.executescript("""
             CREATE TABLE IF NOT EXISTS users(
@@ -169,7 +169,7 @@ class Store:
         with self.connect() as conn:
             row = conn.execute("SELECT role FROM users WHERE username=?", (username,)).fetchone()
             if not row or row["role"] == "admin":
-                raise ValueError("不能修改管理员账号或不存在的账号")
+                raise ValueError("不能修改李睿琪管理账号或不存在的账号")
             fields, values = [], []
             for key, value in data.items():
                 fields.append(key + "=?")
@@ -182,7 +182,7 @@ class Store:
         with self.connect() as conn:
             user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
             if not user or user["role"] == "admin":
-                raise ValueError("管理员账号请使用本人修改密码入口")
+                raise ValueError("李睿琪管理账号请使用本人修改密码入口")
             password, salt = secrets.token_urlsafe(15), secrets.token_hex(16)
             conn.execute("UPDATE users SET salt=?,password_hash=?,must_change_password=1 WHERE username=?", (salt, password_hash(password, salt), username))
             conn.execute("DELETE FROM sessions WHERE username=?", (username,))
@@ -236,6 +236,8 @@ class Store:
                 merged = dict(item)
                 if current:
                     old = json.loads(current["base_json"])
+                    from app.ownership import preserve_assignment
+                    preserve_assignment(old, merged)
                     evidence = {e["locator"]: e for e in old.get("evidence", [])}
                     evidence.update({e["locator"]: e for e in item.get("evidence", [])})
                     merged["evidence"] = list(evidence.values())
@@ -262,6 +264,7 @@ class Store:
 
     def snapshot(self):
         from app.briefs import list_summary
+        from app.ownership import decorate_owner
         from app.workdays import priority
         with self.connect() as conn:
             meta = conn.execute("SELECT value_json FROM metadata WHERE key='snapshot'").fetchone()
@@ -285,6 +288,7 @@ class Store:
                 base["evidence"] = base.get("evidence", []) + manual_evidence
                 base["list_summary"] = list_summary(base, briefs.get(base["id"]))
                 base["priority"] = priority(base)
+                decorate_owner(base, overrides)
                 items.append(base)
             result["items"] = sorted(items, key=lambda i: (i["status"] == "已解决", not i["priority"]["urgent"], i["last_seen"]), reverse=False)
             if result.get("coverage", {}).get("limitations"):
@@ -316,7 +320,7 @@ class Store:
         is_admin = actor["role"] == "admin"
         if actor["role"] not in {"admin", "editor"}:
             raise ValueError("该账号仅有查看权限")
-        allowed = {"owner", "deadline", "status", "closure_scope", "closure_note"}
+        allowed = {"owner", "owner_confirmation", "deadline", "status", "closure_scope", "closure_note"}
         if not changes or set(changes) - allowed:
             raise ValueError("只支持负责人、期限、状态和关闭依据")
         if "status" in changes and changes["status"] not in STATUSES:
@@ -331,6 +335,8 @@ class Store:
             if not row:
                 raise KeyError("事项不存在")
             base, overrides = json.loads(row["base_json"]), json.loads(row["override_json"])
+            from app.ownership import manual_owner
+            manual_owner(base, overrides, changes, {"username": username, "display_name": actor["display_name"]})
             note = changes.pop("closure_note", "") or ""
             if note.strip() in {"好", "好的", "收到", "OK", "ok", "安排", "已阅", "查看"}:
                 raise ValueError("请填写实际处理内容，收悉或安排不能重新计时")
@@ -376,6 +382,12 @@ class Store:
                               "text": summary or "李睿琪手工登记本事项"}], "closure_scope": None,
                 "review_state": "李睿琪手工登记", "closed_at": None}
         with self.connect() as conn:
+            if owner:
+                from app.ownership import manual_owner
+                actor = conn.execute("SELECT display_name FROM users WHERE username=?", (username,)).fetchone()
+                ownership = {"owner": owner, "owner_confirmation": "confirmed"}
+                manual_owner(item, {}, ownership, {"username": username, "display_name": actor[0] if actor else username})
+                item.update(ownership)
             conn.execute("INSERT INTO items(id,base_json) VALUES(?,?)", (item_id, json.dumps(item, ensure_ascii=False)))
             conn.execute("INSERT INTO audit(time,username,action,item_id,details_json) VALUES(?,?,?,?,?)",
                          (timestamp, username, "add_item", item_id, json.dumps({"title": title}, ensure_ascii=False)))

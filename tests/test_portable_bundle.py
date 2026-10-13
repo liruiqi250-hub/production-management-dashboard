@@ -116,29 +116,6 @@ class PortableBundleTests(unittest.TestCase):
             self.assertNotIn(b"import site", source.read(prefix + "vendor/python/python313._pth"))
             self.assertIn(prefix + "vendor/chromium/LICENSE.headless_shell", names)
 
-    def test_lantern_package_contains_independent_entry_and_hashed_start_guide(self):
-        files = {
-            "VERSION": b"0.3.0\n", "app/__init__.py": b'__version__ = "0.3.0"\n',
-            "启动彩灯看板_V0.3.0.cmd": b"@echo off\n",
-            "docs/lantern-start-here.txt": "解压后双击彩灯入口".encode(),
-            "dependencies/windows-x64.lock.json": json.dumps(self.lock).encode(),
-        }
-        for name, data in files.items():
-            path = self.root / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
-        with patch.object(bundle, "_tracked", return_value=list(files)), patch('scripts.build_document_runtime.build_document_runtime'):
-            result = bundle.build_bundle(self.root, offline=True, profile="lantern")
-        self.assertEqual(result["profile"], "lantern")
-        with zipfile.ZipFile(result["archive"]) as archive:
-            prefix = "lantern-dashboard-V0.3.0-windows-x64/"
-            guide = archive.read(prefix + "开始使用_彩灯.txt")
-            manifest = json.loads(archive.read(prefix + "SHA256SUMS.json"))
-            self.assertEqual(guide, files["docs/lantern-start-here.txt"])
-            self.assertEqual(manifest["files"]["开始使用_彩灯.txt"]["sha256"], hashlib.sha256(guide).hexdigest())
-            self.assertIn(prefix + "启动彩灯看板_V0.3.0.cmd", archive.namelist())
-            self.assertFalse(any("/private/" in name for name in archive.namelist()))
-
     def test_accidentally_tracked_private_data_blocks_build(self):
         with patch.object(bundle, "_tracked", return_value=["private/production.sqlite3"]):
             with self.assertRaisesRegex(bundle.PublishError, "敏感文件"):

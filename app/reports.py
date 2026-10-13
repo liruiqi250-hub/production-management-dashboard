@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from app import __version__ as SOFTWARE_VERSION
+from app.ownership import owner_description
 
 
 SHANGHAI = timezone(timedelta(hours=8), name="Asia/Shanghai")
@@ -149,6 +150,13 @@ def build_report(snapshot: dict, kind: str, end_date: str) -> dict:
             else:
                 evidence.append(entry)
         item["evidence"] = evidence
+        basis = item.get("owner_basis") or {}
+        basis_dates = [_date(basis.get("checked_at"))] + [_date(e.get("time")) for e in basis.get("evidence", [])]
+        if any(d is not None and d > end for d in basis_dates):
+            item["owner"] = None
+            item["owner_basis"] = {"kind": "unassigned", "reason": "负责人判断晚于报告期末，不作为当时已知分工。", "evidence": []}
+        elif isinstance(basis, dict):
+            item["owner_basis"] = {**basis, "evidence": [e for e in basis.get("evidence", []) if _date(e.get("time")) is None or _date(e.get("time")) <= end]}
         if last is not None and last > end:
             # 当前摘要不能安全重建历史；保留可定位的期末以前证据。
             item["summary"] = "来源快照在期末之后有更新，当前摘要不在历史报告展开；请依据截至期末的证据核对。"
@@ -240,7 +248,7 @@ def after_sales_html(report):
         mark = "优先处理 · " if item.get("priority", {}).get("urgent") else ""
         rows.append('<tr><td>' + _esc(item.get("company")) + ' · ' + _esc(item.get("source_case_id"))
                     + '<br>资料月份 ' + _esc(item.get("period")) + '</td><td>' + _esc(mark + item.get("status", ""))
-                    + '</td><td>' + _esc(_text(item.get("observed"))[:80]) + '<br>下一步：' + _esc(_text(item.get("next_action"))[:100])
+                    + '</td><td>跟进负责人：' + _esc(item.get("owner") or "待判断") + '（' + _esc(owner_description(item)) + '）<br>' + _esc(_text(item.get("observed"))[:80]) + '<br>下一步：' + _esc(_text(item.get("next_action"))[:100])
                     + '</td></tr>')
     return ('<section><h2>售后跟进（当前台账附录）</h2><p class="muted">资料月份：'
             + _esc('、'.join(data.get("periods") or [])) + '；历史记录待复核，不作为报告期内新增故障。已给建议、资料已发、当次恢复不等于完成验收。</p>'
@@ -305,7 +313,7 @@ def _item_table(items: list[dict], rendered: set[str], empty: str = "暂无符�
                     + '<br><span class="muted">' + _esc(item.get("id")) + " · " + _esc(item.get("category"))
                     + '<br>' + _esc(item.get("group")) + " / " + _esc(item.get("source_id")) + '</span>'
                     + note + _evidence_html(item, rendered) + '</td><td>' + _paragraph(item.get("status"), "状态待核")
-                    + '<br>负责人：' + _paragraph(item.get("owner"), "未指定")
+                    + '<br>跟进负责人：' + _paragraph(item.get("owner"), "未指定") + '<br>' + _paragraph(owner_description(item, detail=True))
                     + '<br><span class="muted">审核：' + _paragraph(item.get("review_state"), "待审核")
                     + '</span>' + scope + '</td><td>' + _paragraph(item.get("deadline"), "未指定")
                     + '<br><span class="muted">首次：' + _esc(item.get("first_seen"))
@@ -476,7 +484,7 @@ def render_report_brief_html(report: dict) -> str:
                     + _esc(item.get("id")) + ' · ' + _esc(item.get("category")) + '<br>'
                     + _esc(item.get("group") or "来源群待核") + '</span><div class="locators">'
                     + locator_html + '</div></td><td><strong>' + _esc(item.get("status") or "状态待核")
-                    + '</strong><br>负责人：' + _esc(item.get("owner") or "未指定")
+                    + '</strong><br>跟进负责人：' + _esc(item.get("owner") or "未指定") + '<br><span class="muted">' + _esc(owner_description(item)) + '</span>'
                     + '<br>期限：' + _esc(item.get("deadline") or "未指定")
                     + '<br><span class="muted">' + _esc(review or "审核待核") + '</span>' + status_note
                     + '</td><td><strong>进展：</strong>' + _brief_text(item.get("summary"), 120)
@@ -535,7 +543,7 @@ def render_report_csv(report: dict) -> str:
                "负责人", "期限", "首次发生", "快照最近出现", "明确解决日期", "进展摘要", "下一步",
                "来源编号", "来源群", "审核状态", "关闭范围", "本期新增", "本期更新", "本期解决", "期末未结",
                "负责人期限空缺", "报告说明", "证据定位及原文", "来源快照覆盖范围", "来源快照统计截止",
-               "来源快照消息量", "媒体覆盖与缺失", "统计口径及限制", "软件版本"]
+               "来源快照消息量", "媒体覆盖与缺失", "统计口径及限制", "软件版本", "负责人判断依据"]
     output = io.StringIO(newline="")
     writer = csv.writer(output, lineterminator="\r\n")
     writer.writerow(headers)
@@ -560,6 +568,7 @@ def render_report_csv(report: dict) -> str:
         values.extend("是" if item_id and item_id in memberships[key] else "" for key in memberships)
         values.extend([item.get("report_note"), evidence, source_range, coverage.get("source_cutoff"),
                        coverage.get("message_count"), _media_text(coverage.get("media")), restrictions, report.get("version")])
+        values.append(owner_description(item, detail=True))
         writer.writerow([_csv_cell(value) for value in values])
     for case in (report.get("after_sales") or {}).get("cases", []):
         values = ["售后当前台账附录", period.get("start"), period.get("end"), case.get("id"),
@@ -568,5 +577,6 @@ def render_report_csv(report: dict) -> str:
                   "after_sales", case.get("company"), "历史记录待复核", ""]
         values.extend([""] * len(memberships))
         values.extend(["当前售后台账附录，不计报告期内新增故障", case.get("evidence"), case.get("period"), "", "", "", "已给建议/资料已发/当次恢复不等于完成验收", report.get("version")])
+        values.append(owner_description(case, detail=True))
         writer.writerow([_csv_cell(value) for value in values])
     return output.getvalue()

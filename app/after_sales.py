@@ -59,7 +59,13 @@ class AfterSales:
                 old = conn.execute("SELECT base_json FROM after_sales WHERE id=?", (row["id"],)).fetchone()
                 if old:
                     previous = json.loads(old[0])
+                    incoming_owner = row.get("owner")
+                    has_owner_basis = "owner_basis" in row
                     row = {**previous, **{k: v for k, v in row.items() if v is not None}}
+                    if has_owner_basis:
+                        row["owner"] = incoming_owner
+                    from app.ownership import preserve_assignment
+                    preserve_assignment(previous, row)
                     if previous.get("status") == "完成验收":
                         row["status"] = "完成验收"
                         row["acceptance_note"] = previous.get("acceptance_note")
@@ -75,12 +81,15 @@ class AfterSales:
         return {"imported": len(prepared), "period": period}
 
     def snapshot(self):
+        from app.ownership import decorate_owner
         with self.store.connect() as conn:
             items = []
             for row in conn.execute("SELECT * FROM after_sales"):
                 item = json.loads(row["base_json"])
                 source_progress = item.get("progress_at")
-                item.update(json.loads(row["override_json"]))
+                overrides = json.loads(row["override_json"])
+                item.update(overrides)
+                decorate_owner(item, overrides)
                 if source_progress and source_progress > (item.get("progress_at") or ""):
                     item["progress_at"] = source_progress
                 item["priority"] = priority(item)
@@ -93,7 +102,7 @@ class AfterSales:
     def update(self, item_id, changes, actor):
         if actor.get("role") not in {"admin", "editor"}:
             raise ValueError("该账号仅有查看权限")
-        if not changes or set(changes) - {"status", "owner", "progress_note"} or any(not isinstance(v, str) or len(v) > 2000 for v in changes.values()):
+        if not changes or set(changes) - {"status", "owner", "owner_confirmation", "progress_note"} or any(not isinstance(v, str) or len(v) > (80 if k == "owner" else 2000) for k, v in changes.items()):
             raise ValueError("仅可修改售后状态、负责人及处理说明")
         if changes.get("status") and changes["status"] not in STATUSES:
             raise ValueError("售后状态无效")
@@ -103,10 +112,12 @@ class AfterSales:
         if changes.get("status") == "完成验收" and not note:
             raise ValueError("完成验收需填写实际结果和验收依据")
         with self.store.connect() as conn:
-            row = conn.execute("SELECT override_json FROM after_sales WHERE id=?", (item_id,)).fetchone()
+            row = conn.execute("SELECT base_json,override_json FROM after_sales WHERE id=?", (item_id,)).fetchone()
             if not row:
                 raise KeyError("售后事项不存在")
-            overrides = json.loads(row[0])
+            overrides = json.loads(row["override_json"])
+            from app.ownership import manual_owner
+            manual_owner(json.loads(row["base_json"]), overrides, changes, actor)
             overrides.update({k: v for k, v in changes.items() if k != "progress_note"})
             if note:
                 timestamp = now()
