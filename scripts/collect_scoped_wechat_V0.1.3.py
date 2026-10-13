@@ -156,9 +156,15 @@ def main():
     parser.add_argument("--group-indices", default="1")
     parser.add_argument("--media", action="store_true")
     parser.add_argument("--transcribe-voices", action="store_true")
-    parser.add_argument("--scope", choices=["production", "after_sales"], default="production")
+    parser.add_argument("--scope", choices=["production", "after_sales", "lantern"], default="production")
     args = parser.parse_args()
     selected_groups = GROUPS if args.scope == "production" else ["大洋安装售后群", "云艺安装售后群", "金耐安装售后群"]
+    if args.scope == "lantern":
+        sys.path.insert(0, str(WORKSPACE))
+        from app.lantern_sources import load_sources
+        selected_groups = load_sources(WORKSPACE)["wechat_groups"]
+        if not selected_groups:
+            raise ValueError("彩灯来源未授权微信群")
     out = Path(args.out).resolve()
     if WORKSPACE not in out.parents:
         raise ValueError("输出必须在当前生产管理工作区内")
@@ -220,7 +226,7 @@ def main():
             sources = []
             for i, name in enumerate(selected_groups, 1):
                 found = group_rows(db, name)
-                source_id = f"production_{i:02}" if args.scope == "production" else ["dayang", "yunyi", "jinnai"][i - 1]
+                source_id = f"lantern_{i:02}" if args.scope == "lantern" else f"production_{i:02}" if args.scope == "production" else ["dayang", "yunyi", "jinnai"][i - 1]
                 src = {"source_id": source_id, "index": i, "group": name,
                        "exact_match_count": len(found), "binding_verified": len(found) == 1}
                 if len(found) == 1:

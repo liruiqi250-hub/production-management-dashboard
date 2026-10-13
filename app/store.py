@@ -28,11 +28,11 @@ def password_hash(password, salt):
 
 
 class Store:
-    def __init__(self, workspace):
+    def __init__(self, workspace, *, database_name="production_V0.2.0.sqlite3"):
         self.workspace = Path(workspace)
         self.private = self.workspace / "private"
         self.private.mkdir(parents=True, exist_ok=True)
-        self.path = self.private / "production_V0.2.0.sqlite3"
+        self.path = self.private / database_name
         with self.connect() as conn:
             conn.executescript("""
             CREATE TABLE IF NOT EXISTS users(
