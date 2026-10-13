@@ -7,7 +7,7 @@ import json
 import secrets
 import sqlite3
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -28,11 +28,11 @@ def password_hash(password, salt):
 
 
 class Store:
-    def __init__(self, workspace, *, database_name="production_V0.2.0.sqlite3"):
+    def __init__(self, workspace):
         self.workspace = Path(workspace)
         self.private = self.workspace / "private"
         self.private.mkdir(parents=True, exist_ok=True)
-        self.path = self.private / database_name
+        self.path = self.private / "production_V0.2.0.sqlite3"
         with self.connect() as conn:
             conn.executescript("""
             CREATE TABLE IF NOT EXISTS users(
@@ -169,7 +169,7 @@ class Store:
         with self.connect() as conn:
             row = conn.execute("SELECT role FROM users WHERE username=?", (username,)).fetchone()
             if not row or row["role"] == "admin":
-                raise ValueError("不能修改管理员账号或不存在的账号")
+                raise ValueError("不能修改李睿琪管理账号或不存在的账号")
             fields, values = [], []
             for key, value in data.items():
                 fields.append(key + "=?")
@@ -182,7 +182,7 @@ class Store:
         with self.connect() as conn:
             user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
             if not user or user["role"] == "admin":
-                raise ValueError("管理员账号请使用本人修改密码入口")
+                raise ValueError("李睿琪管理账号请使用本人修改密码入口")
             password, salt = secrets.token_urlsafe(15), secrets.token_hex(16)
             conn.execute("UPDATE users SET salt=?,password_hash=?,must_change_password=1 WHERE username=?", (salt, password_hash(password, salt), username))
             conn.execute("DELETE FROM sessions WHERE username=?", (username,))
@@ -226,11 +226,11 @@ class Store:
         with self.connect() as conn:
             conn.execute("UPDATE api_tokens SET revoked=1 WHERE username=? AND id=?", (username, token_id))
 
-    def import_snapshot(self, snapshot):
+    def import_snapshot(self, snapshot, connection=None):
         from app.normalize import validate_snapshot
         validate_snapshot(snapshot)
         inserted = updated = 0
-        with self.connect() as conn:
+        with (nullcontext(connection) if connection is not None else self.connect()) as conn:
             for item in snapshot["items"]:
                 current = conn.execute("SELECT base_json FROM items WHERE id=?", (item["id"],)).fetchone()
                 merged = dict(item)
@@ -241,6 +241,15 @@ class Store:
                     merged["evidence"] = list(evidence.values())
                     merged["first_seen"] = min(old["first_seen"], item["first_seen"])
                     merged["last_seen"] = max(old["last_seen"], item["last_seen"])
+                    # 既有阶段关闭不由新的自动候选撤销；重新开启走授权人员PATCH。
+                    if old.get("status") == "已解决" and item.get("status") != "已解决":
+                        for key in ("status", "closed_at", "closure_scope", "review_state", "completion_source", "completed_by", "completed_by_name"):
+                            if key in old:
+                                merged[key] = old[key]
+                    if old.get("progress_at") and old["progress_at"] > (merged.get("progress_at") or ""):
+                        for key in ("progress_at", "progress_note", "progress_locator"):
+                            if key in old:
+                                merged[key] = old[key]
                     conn.execute("UPDATE items SET base_json=? WHERE id=?", (json.dumps(merged, ensure_ascii=False), item["id"]))
                     updated += 1
                 else:
@@ -253,6 +262,7 @@ class Store:
 
     def snapshot(self):
         from app.briefs import list_summary
+        from app.workdays import priority
         with self.connect() as conn:
             meta = conn.execute("SELECT value_json FROM metadata WHERE key='snapshot'").fetchone()
             result = json.loads(meta[0]) if meta else {"version": "0.2.0", "coverage": {}, "period": {}, "generated_at": None}
@@ -261,9 +271,12 @@ class Store:
             items = []
             for row in conn.execute("SELECT * FROM items"):
                 base, overrides = json.loads(row["base_json"]), json.loads(row["override_json"])
+                source_progress = base.get("progress_at")
                 manual_evidence = overrides.pop("manual_evidence", [])
                 source_last_seen = base["last_seen"]
                 base.update(overrides)
+                if source_progress and source_progress > (base.get("progress_at") or ""):
+                    base["progress_at"] = source_progress
                 base["source_last_seen"] = source_last_seen
                 if isinstance(base.get("review_state"), str):
                     base["review_state"] = base["review_state"].replace("副厂", "李睿琪")
@@ -271,8 +284,9 @@ class Store:
                     base["last_seen"] = max(source_last_seen, overrides["manual_updated_at"])
                 base["evidence"] = base.get("evidence", []) + manual_evidence
                 base["list_summary"] = list_summary(base, briefs.get(base["id"]))
+                base["priority"] = priority(base)
                 items.append(base)
-            result["items"] = sorted(items, key=lambda i: (i["status"] == "已解决", i["last_seen"]), reverse=False)
+            result["items"] = sorted(items, key=lambda i: (i["status"] == "已解决", not i["priority"]["urgent"], i["last_seen"]), reverse=False)
             if result.get("coverage", {}).get("limitations"):
                 result["coverage"]["limitations"] = [str(note).replace("副厂", "李睿琪") for note in result["coverage"]["limitations"]]
             result["team"] = {"跟单": ["张英", "银小芹"], "机械设计": ["王星", "郭逸", "张利伟"], "李睿琪": ["本人绘图 / 协调"]}
@@ -318,6 +332,11 @@ class Store:
                 raise KeyError("事项不存在")
             base, overrides = json.loads(row["base_json"]), json.loads(row["override_json"])
             note = changes.pop("closure_note", "") or ""
+            if note.strip() in {"好", "好的", "收到", "OK", "ok", "安排", "已阅", "查看"}:
+                raise ValueError("请填写实际处理内容，收悉或安排不能重新计时")
+            if note.strip():
+                overrides["progress_at"] = now()
+                overrides.setdefault("progress_notes", []).append({"time": now(), "username": username, "name": actor["display_name"], "note": note.strip()})
             current_status = overrides.get("status", base["status"])
             current_scope = overrides.get("closure_scope", base.get("closure_scope"))
             changing_closed_scope = changes.get("status", current_status) == "已解决" and "closure_scope" in changes and changes["closure_scope"] != current_scope

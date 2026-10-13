@@ -26,6 +26,10 @@ class DashboardServer(ThreadingHTTPServer):
 
     def __init__(self, address, store, lan_ip):
         self.store = store
+        from app.after_sales import AfterSales
+        from app.jobs import Jobs
+        self.after_sales = AfterSales(store)
+        self.jobs = Jobs(store.workspace)
         self.lan_ip = lan_ip
         self.network = ipaddress.ip_network(lan_ip + "/24", strict=False)
         self.attempts = {}
@@ -138,9 +142,14 @@ class Handler(BaseHTTPRequestHandler):
             return self.json({"user": {k: v for k, v in user.items() if k not in {"csrf", "auth_type"}}, "csrf": user["csrf"], "version": __version__, "lan_url": f"http://{self.server.lan_ip}:{self.server.server_port}"})
         if path in {"/api/dashboard", "/api/v1/overview", "/api/v1/items"}:
             snapshot = self.server.store.snapshot()
+            snapshot["after_sales"] = self.server.after_sales.snapshot()
             if path == "/api/v1/items":
                 return self.json({"items": snapshot["items"], "period": snapshot.get("period"), "generated_at": snapshot.get("generated_at")})
             return self.json(snapshot)
+        if path in {"/api/after-sales", "/api/v1/after-sales"}:
+            return self.json(self.server.after_sales.snapshot())
+        if path == "/api/jobs/current":
+            return self.json(self.server.jobs.status())
         if path == "/api/users":
             if user["role"] != "admin":
                 return self.json({"error": "仅李睿琪可以管理授权账号"}, 403)
@@ -158,7 +167,9 @@ class Handler(BaseHTTPRequestHandler):
                 fmt = query.get("format", ["html"])[0]
                 if fmt not in {"html", "csv", "json", "pdf"}:
                     raise ValueError("导出格式无效")
-                report = build_report(self.server.store.snapshot(), kind, end)
+                snapshot = self.server.store.snapshot()
+                snapshot["after_sales"] = self.server.after_sales.snapshot()
+                report = build_report(snapshot, kind, end)
                 report["version"] = __version__
                 if fmt == "json":
                     return self.json(report)
@@ -217,6 +228,16 @@ class Handler(BaseHTTPRequestHandler):
             user = self.require(write=True, allow_password_change=method == "POST" and path in {"/api/password", "/api/logout"})
             if not user:
                 return
+            if path == "/api/jobs" and method == "POST":
+                if user["role"] != "admin":
+                    return self.json({"error": "仅李睿琪可启动整理，其他账号可查看运行结果"}, 403)
+                if data:
+                    raise ValueError("整理入口不接受自定义命令、路径或提示词")
+                return self.json(self.server.jobs.start(user["username"]), 202)
+            if path.startswith("/api/after-sales/") and method == "PATCH":
+                if user["role"] not in {"admin", "editor"}:
+                    return self.json({"error": "该账号仅有查看权限"}, 403)
+                return self.json({"case": self.server.after_sales.update(unquote(path[len('/api/after-sales/'):]), data, user)})
             if path == "/api/logout" and method == "POST":
                 self.server.store.logout(self.session_token)
                 return self.json({"ok": True}, headers={"Set-Cookie": f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"})

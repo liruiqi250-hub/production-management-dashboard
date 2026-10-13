@@ -156,7 +156,9 @@ def main():
     parser.add_argument("--group-indices", default="1")
     parser.add_argument("--media", action="store_true")
     parser.add_argument("--transcribe-voices", action="store_true")
+    parser.add_argument("--scope", choices=["production", "after_sales"], default="production")
     args = parser.parse_args()
+    selected_groups = GROUPS if args.scope == "production" else ["大洋安装售后群", "云艺安装售后群", "金耐安装售后群"]
     out = Path(args.out).resolve()
     if WORKSPACE not in out.parents:
         raise ValueError("输出必须在当前生产管理工作区内")
@@ -164,7 +166,7 @@ def main():
         raise ValueError("已有采集证据，请使用新的独立输出目录")
     out.mkdir(parents=True, exist_ok=True)
     indices = [int(v) for v in args.group_indices.split(",")]
-    if len(indices) != len(set(indices)) or any(i < 1 or i > len(GROUPS) for i in indices):
+    if len(indices) != len(set(indices)) or any(i < 1 or i > len(selected_groups) for i in indices):
         raise ValueError("群索引不在授权清单内或重复")
     now = datetime.now(TZ)
     start, end = collection_period(args.start, args.end_exclusive, now)
@@ -216,9 +218,10 @@ def main():
             if db.account != account["account"] or info["username"] != account["self_username"]:
                 raise ValueError("读取账号与已知授权来源身份不一致")
             sources = []
-            for i, name in enumerate(GROUPS, 1):
+            for i, name in enumerate(selected_groups, 1):
                 found = group_rows(db, name)
-                src = {"source_id": f"production_{i:02}", "index": i, "group": name,
+                source_id = f"production_{i:02}" if args.scope == "production" else ["dayang", "yunyi", "jinnai"][i - 1]
+                src = {"source_id": source_id, "index": i, "group": name,
                        "exact_match_count": len(found), "binding_verified": len(found) == 1}
                 if len(found) == 1:
                     src["group_id_sha256"] = digest(found[0]["username"])

@@ -221,12 +221,30 @@ def build_report(snapshot: dict, kind: str, end_date: str) -> dict:
         "period": period, "counts": counts, "sections": sections,
         "items": visible, "coverage": coverage, "limitations": limitations,
         "executive_summary": summary,
+        "after_sales": copy.deepcopy(snapshot.get("after_sales") or {}),
         "count_note": "新增、更新、解决分别按事件计数，可能交叉，不相加为事项总数；更新仅含更早发生且本期最近出现的事项。",
     }
 
 
 def _esc(value: Any) -> str:
     return html.escape(_text(value), quote=True)
+
+
+def after_sales_html(report):
+    data = report.get("after_sales") or {}
+    cases = data.get("cases") or []
+    if not cases:
+        return ""
+    rows = []
+    for item in cases:
+        mark = "优先处理 · " if item.get("priority", {}).get("urgent") else ""
+        rows.append('<tr><td>' + _esc(item.get("company")) + ' · ' + _esc(item.get("source_case_id"))
+                    + '<br>资料月份 ' + _esc(item.get("period")) + '</td><td>' + _esc(mark + item.get("status", ""))
+                    + '</td><td>' + _esc(_text(item.get("observed"))[:80]) + '<br>下一步：' + _esc(_text(item.get("next_action"))[:100])
+                    + '</td></tr>')
+    return ('<section><h2>售后跟进（当前台账附录）</h2><p class="muted">资料月份：'
+            + _esc('、'.join(data.get("periods") or [])) + '；历史记录待复核，不作为报告期内新增故障。已给建议、资料已发、当次恢复不等于完成验收。</p>'
+            + '<table><colgroup><col style="width:18%"><col style="width:12%"><col style="width:70%"></colgroup><thead><tr><th>公司 / 事项 / 月份</th><th>状态</th><th>摘要与下一步</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></section>')
 
 
 def _paragraph(value: Any, fallback: str = "待补充") -> str:
@@ -404,7 +422,7 @@ button { padding: 8px 16px; cursor: pointer; } footer { margin-top: 24px; paddin
         + _paragraph(_media_text(coverage.get("media")), "未记录媒体覆盖，请补充核对。") + '</p><ul>'
         + "".join('<li>' + _esc(value) + '</li>' for value in report.get("limitations") or []) + '</ul></section>'
         + '<footer class="muted">本稿用于生产跟进与复核。证据定位沿用来源记录，关闭范围仅限对应确认节点。</footer>'
-        + '</main></body></html>')
+        + after_sales_html(report) + '</main></body></html>')
 
 
 def _csv_cell(value: Any) -> str:
@@ -508,7 +526,7 @@ footer { border-top: 1px solid #ccd6e2; margin-top: 9px; padding-top: 5px; font-
             + _esc(counts.get("selected_items", len(report.get("items") or []))) + ' 项。</p><p><strong>范围提示：</strong>'
             + _esc(coverage.get("range_note")) + '</p><p><strong>媒体覆盖与缺失：</strong>'
             + _esc(_media_text(coverage.get("media")) or "未记录，请复核。") + '</p><p>'
-            + _esc(limitations) + '</p></div><footer>简报只压缩文字，不删未结事项；原消息证据与人工补录证据分别标示，完整内容见HTML详情、CSV台账与看板。</footer></main></body></html>')
+            + _esc(limitations) + '</p></div>' + after_sales_html(report) + '<footer>简报只压缩文字，不删未结事项；原消息证据与人工补录证据分别标示，完整内容见HTML详情、CSV台账与看板。</footer></main></body></html>')
 
 
 def render_report_csv(report: dict) -> str:
@@ -542,5 +560,13 @@ def render_report_csv(report: dict) -> str:
         values.extend("是" if item_id and item_id in memberships[key] else "" for key in memberships)
         values.extend([item.get("report_note"), evidence, source_range, coverage.get("source_cutoff"),
                        coverage.get("message_count"), _media_text(coverage.get("media")), restrictions, report.get("version")])
+        writer.writerow([_csv_cell(value) for value in values])
+    for case in (report.get("after_sales") or {}).get("cases", []):
+        values = ["售后当前台账附录", period.get("start"), period.get("end"), case.get("id"),
+                  case.get("observed"), case.get("category"), case.get("status"), case.get("owner"),
+                  "", case.get("period"), case.get("progress_at"), "", case.get("handling"), case.get("next_action"),
+                  "after_sales", case.get("company"), "历史记录待复核", ""]
+        values.extend([""] * len(memberships))
+        values.extend(["当前售后台账附录，不计报告期内新增故障", case.get("evidence"), case.get("period"), "", "", "", "已给建议/资料已发/当次恢复不等于完成验收", report.get("version")])
         writer.writerow([_csv_cell(value) for value in values])
     return output.getvalue()
