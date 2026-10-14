@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '0.3.3';
+const VERSION = '0.3.4';
 const STAGES = ['丝架', '装灯', '裱糊', '上色'];
 const STATUSES = ['未开始', '进行中', '已完成'];
 const MERCHANDISERS = ['江红', '黄钰萌', '田秀玲'];
@@ -85,6 +85,8 @@ function showLogin(message = '') {
   state.editor = null; state.dirty = false;
   if ($('editor-dialog').open) $('editor-dialog').close();
   state.documentForm = null; $('doc-form').reset(); clear($('doc-fields')); clear($('doc-warnings'));
+  state.review = null; if ($('review-dialog').open) $('review-dialog').close(); $('review-form').reset(); clear($('review-fields')); clear($('inbox-list')); state.inboxOffset = 0;
+  $('review-text').textContent=''; $('review-source').textContent=''; $('review-original').removeAttribute('href'); clear($('review-warnings'));
   clear($('new-user-secret')); $('new-user-secret').hidden = true;
   clear($('token-secret')); $('token-secret').hidden = true; clear($('token-list'));
   clear($('analysis-findings')); $('analysis-findings').hidden = true;
@@ -124,13 +126,13 @@ async function bootstrap() {
 }
 function refreshLabel() {
   const stamp = state.lastRefresh ? state.lastRefresh.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', second: '2-digit'}) : '';
-  const editing = state.editor || (state.page === 'documents' && state.documentForm);
+  const editing = state.editor || state.review || (state.page === 'documents' && state.documentForm);
   $('refresh-status').textContent = editing ? '编辑中 · 自动刷新已暂停' : (stamp ? `${stamp} 已刷新 · 每30秒` : '尚未刷新');
   $('refresh-button').disabled = state.loading || Boolean(editing);
 }
 async function loadData({quiet = false} = {}) {
   if (!state.user || state.user.must_change_password || state.loading) return;
-  if (state.editor || (state.page === 'documents' && state.documentForm)) { refreshLabel(); return; }
+  if (state.editor || state.review || (state.page === 'documents' && state.documentForm)) { refreshLabel(); return; }
   const epoch = state.epoch;
   state.loading = true; refreshLabel();
   if (!quiet) showError();
@@ -138,7 +140,7 @@ async function loadData({quiet = false} = {}) {
     const result = await api('/api/lantern');
     if (epoch !== state.epoch) return;
     state.data = {projects: Array.isArray(result.projects) ? result.projects : [], shipments: Array.isArray(result.shipments) ? result.shipments : [], analysis: result.analysis || {}};
-    state.lastRefresh = new Date(); render(); showError(); loadJob();
+    state.lastRefresh = new Date(); render(); showError(); loadJob(); if (state.page === 'projects') loadInbox();
   } catch (error) { if (epoch === state.epoch && error.status !== 401) showError(`刷新失败：${error.message}。当前显示上次已读取的数据。`); }
   finally { state.loading = false; refreshLabel(); }
 }
@@ -151,6 +153,7 @@ function setPage(page) {
   });
   $('analysis-findings').hidden = page !== 'projects' || !state.data.analysis?.findings?.length;
   if (page === 'documents' && !state.documentForm && canEdit()) openDocuments();
+  if (page === 'projects' && state.user) loadInbox();
   refreshLabel();
   if (page === 'accounts' && isAdmin()) { updateCodex(); loadTokens(); loadUsers(); if (!state.emailLoaded) loadEmail(); }
 }
@@ -310,6 +313,119 @@ function renderFindings() {
   if (Array.isArray(analysis.limitations) && analysis.limitations.length) { const limits = el('ul', {class: 'small muted'}); for (const limit of analysis.limitations) limits.append(el('li', {}, limit)); section.append(limits); }
   target.append(section);
 }
+async function loadInbox(more = false) {
+  if (!state.user || state.user.must_change_password || state.inboxLoading) return;
+  state.inboxLoading = true; const epoch = state.epoch;
+  try {
+    const offset = more ? state.inboxOffset || 0 : 0;
+    const result = await api('/api/lantern/inbox?offset=' + offset);
+    if (epoch !== state.epoch) return;
+    const list = $('inbox-list'); if (!more) clear(list);
+    $('inbox-count').textContent = `待核对 ${result.pending} 份 · 已留存 ${result.total} 份；先核对，再建立项目或带入报关。`;
+    for (const record of result.documents) {
+      const card = el('article', {class:'inbox-card'}), title = el('div');
+      title.append(el('strong', {}, record.filename), el('p',{class:'small muted'}, `${{production:'生产单',pi:'PI',packing:'装箱单',unknown:'类型待确认'}[record.kind] || '待确认'} · ${record.status === 'confirmed' ? '已核对：' + text(record.reviewed_by_name) : '待核对'} · ${text(record.time)}`));
+      card.append(title);
+      const actions = el('div',{class:'actions'}), review = el('button',{type:'button'}, record.status === 'confirmed' ? '查看核对结果' : '打开并核对');
+      review.addEventListener('click', () => openReview(record.id)); actions.append(review);
+      if (record.status === 'confirmed' && ['pi','packing'].includes(record.kind) && canEdit()) {
+        const use = el('button',{type:'button'}, '带入报关资料'); use.addEventListener('click', () => useInboxDocument(record.id)); actions.append(use);
+      }
+      if (record.project_id) { const link = el('button',{type:'button'},'查看已建项目'); link.addEventListener('click', () => { state.selected=record.project_id; setPage('projects'); renderProjects(); }); actions.append(link); }
+      card.append(actions); list.append(card);
+    }
+    state.inboxOffset = offset + result.documents.length; $('more-inbox').hidden = !result.has_more;
+    if (!result.total) list.append(el('p',{class:'small muted'},'拉取邮箱后，生产单、PI和装箱单附件会出现在这里。'));
+  } catch (error) { if (epoch === state.epoch) $('inbox-count').textContent = '附件列表读取失败：' + error.message; }
+  finally { state.inboxLoading = false; }
+}
+function reviewValues() {
+  const values = {}, target = $('review-fields');
+  for (const input of target.querySelectorAll('[data-review-field]')) values[input.dataset.reviewField] = input.value.trim();
+  if (state.review?.kind === 'production') {
+    values.products = [...target.querySelectorAll('.review-product')].map(row => ({name:row.querySelector('[name=name]').value.trim(), specification:row.querySelector('[name=specification]').value.trim(), quantity:row.querySelector('[name=quantity]').value.trim()}));
+  }
+  return values;
+}
+function reviewProduct(product = {}) {
+  const row = el('div',{class:'review-product form-grid'});
+  for (const [label,key] of [['产品名称','name'],['规格','specification'],['数量','quantity']]) row.append(field(label,key,product[key] || '',{max:1000}).wrapper);
+  const remove = el('button',{type:'button'},'移除此产品'); remove.disabled = state.review.record.status === 'confirmed' || !canEdit();
+  remove.addEventListener('click',()=>{row.remove(); state.review.dirty=true;}); row.append(remove); $('review-products').append(row);
+}
+function renderReviewFields() {
+  const current = state.review; if (!current) return;
+  const target = clear($('review-fields')), kind = current.kind;
+  const values = current.edits[kind] || (current.record.status === 'confirmed' && current.record.kind === kind ? current.record.fields : current.record.candidates?.[kind]?.fields) || {};
+  const entries = kind === 'production' ? [['name','项目名称','text'],['order_no','订单编号','text'],['country','国家','text'],['voltage','电压','text'],['completion_date','完工日期','date'],['salesperson','业务员','text'],['merchandiser','跟单员','text'],['notes','项目备注','textarea']] : DOCUMENT_FIELDS.filter(([, , ,group])=>group===kind).map(([key,label,type])=>[key,label,type]);
+  const grid = el('div',{class:'form-grid'});
+  for (const [key,label,type] of entries) {
+    let item;
+    if(['weight','volume'].includes(type)) {
+      const wrapper=el('label',{},label),input=el('select',{name:key}); input.append(el('option',{value:''},'未知 / 请核对单位'),el('option',{value:type==='weight'?'kg':'m3'},type==='weight'?'kg（千克）':'m³（立方米）')); input.value=values[key]||'';wrapper.append(input);item={wrapper,input};
+    } else item=field(label,key,values[key] || '',{type, max:4000,help:'未确认留空'});
+    item.input.dataset.reviewField=key; if(type==='number'){item.input.step=key==='packages'?'1':'any';item.input.min='0';} grid.append(item.wrapper);
+  }
+  target.append(grid);
+  if (kind === 'production') {
+    target.append(el('h3',{},'产品明细'),el('div',{id:'review-products'}));
+    for (const product of values.products || []) reviewProduct(product);
+    const add=el('button',{type:'button'},'＋ 添加产品'); add.addEventListener('click',()=>{reviewProduct();current.dirty=true;}); add.disabled=current.record.status==='confirmed'||!canEdit(); target.append(add);
+  }
+  const readonly = current.record.status==='confirmed'||!canEdit(); target.querySelectorAll('input,textarea,select').forEach(input=>{input.disabled=readonly;});
+  $('review-kind').disabled=readonly; $('review-confirmed').disabled=readonly; $('review-confirmed').checked=current.record.status==='confirmed';
+  $('save-review').hidden=readonly; $('save-review').textContent=kind==='production'?'核对并新建项目':'确认提取结果';
+}
+async function openReview(id) {
+  if (state.review) return;
+  const epoch=state.epoch;
+  try {
+    const record=await api('/api/lantern/inbox/'+encodeURIComponent(id)); if(epoch!==state.epoch)return;
+    state.review={record,kind:record.kind,edits:{},dirty:false,busy:false}; $('review-form').reset(); $('review-error').textContent='';
+    $('review-title').textContent='核对邮箱附件 · '+record.filename;
+    $('review-source').textContent=`${record.source} · ${record.sender} · ${record.time}\n邮件定位：${record.source_ref}\nSHA256：${record.sha256}\n${record.status==='confirmed'?'核对人：'+record.reviewed_by_name+' · '+record.reviewed_at:'状态：待核对'}`;
+    $('review-original').href='/api/lantern/inbox/'+encodeURIComponent(id)+'/original';
+    $('review-kind').value=record.kind; $('review-text').textContent=record.text || '未提取到文字，请下载原件核对。';
+    const warnings=clear($('review-warnings')); for (const warning of record.warnings || []) warnings.append(el('p',{},warning)); warnings.hidden=!warnings.children.length;
+    renderReviewFields(); $('review-dialog').showModal(); refreshLabel();
+  } catch(error) { if(epoch===state.epoch)showError(error.message); }
+}
+function closeReview(force=false) {
+  if(state.review?.busy && !force)return;
+  if(state.review?.dirty && !force && !confirm('本次核对尚未保存，确定关闭？'))return;
+  state.review=null;$('review-dialog').close();$('review-form').reset();clear($('review-fields'));refreshLabel();
+}
+async function confirmReview(event) {
+  event.preventDefault();const current=state.review;if(!current||current.busy)return;
+  if(!['production','pi','packing'].includes(current.kind)){ $('review-error').textContent='请先确认资料类型。';return; }
+  current.busy=true;$('save-review').disabled=true;
+  try {
+    await api('/api/lantern/inbox/'+current.record.id+'/confirm',{method:'POST',body:{revision:current.record.revision,kind:current.kind,fields:reviewValues(),confirmed:$('review-confirmed').checked}});
+    if(state.review!==current)return;
+    closeReview(true);toast(current.kind==='production'?'已按核对信息建立项目，工序尚未开始。':'提取结果已核对，可带入报关资料。');await loadData();await loadInbox();
+  } catch(error) { if(state.review===current)$('review-error').textContent=error.message; }
+  finally { current.busy=false;$('save-review').disabled=false; }
+}
+async function useInboxDocument(id) {
+  const epoch=state.epoch;
+  try {
+    const record=await api('/api/lantern/inbox/'+encodeURIComponent(id)+'/confirmed');if(epoch!==state.epoch)return;
+    if(!['pi','packing'].includes(record.kind))throw new Error('仅PI和装箱单可以带入报关资料。');
+    if(!state.documentForm)await openDocuments();if(epoch!==state.epoch)return;
+    setPage('documents');const current=state.documentForm;
+    if(current.busy)throw new Error('报关资料正在处理，请完成后再带入。');
+    const occupied=DOCUMENT_FIELDS.some(([key,,,group])=>group===record.kind && $('doc-form').elements.namedItem(key).value);
+    if(current.dirty && occupied && !confirm('带入附件将替换本页对应的PI或装箱字段，其他字段保留，继续？'))return;
+    for(const [key,,,group] of DOCUMENT_FIELDS) if(group===record.kind) $('doc-form').elements.namedItem(key).value=record.fields[key]??'';
+    current.sources[record.kind]=record.attachment_id || '';current.inboxSources[record.kind]=record.id;
+    current.warnings[record.kind]=[`来自已核对附件：${record.filename}；核对人：${record.reviewed_by_name}`,...(record.warnings||[])];
+    current.dirty=true;$('doc-confirmed').checked=false;documentWarnings();toast('已带入核对结果，请再核对本页后生成报关资料。');
+  }catch(error){if(epoch===state.epoch)showError(error.message);}
+}
+$('refresh-inbox').addEventListener('click',()=>loadInbox()); $('more-inbox').addEventListener('click',()=>loadInbox(true));
+$('close-review').addEventListener('click',()=>closeReview());$('review-dialog').addEventListener('cancel',event=>{event.preventDefault();closeReview();});
+$('review-form').addEventListener('submit',confirmReview);$('review-form').addEventListener('input',()=>{if(state.review)state.review.dirty=true;});
+$('review-kind').addEventListener('change',()=>{const current=state.review;if(!current)return;current.edits[current.kind]=reviewValues();current.kind=$('review-kind').value;$('review-confirmed').checked=false;renderReviewFields();});
 function render() {
   optionsFor($('merchandiser-filter'), [...MERCHANDISERS, ...state.data.projects.map(p => p.merchandiser)], '全部跟单');
   optionsFor($('salesperson-filter'), state.data.projects.map(p => p.salesperson), '全部业务员');
@@ -377,7 +493,7 @@ function openProject(project = null) {
   const source = el('section', {class: 'form-section'}); source.append(el('h3', {}, '生产单留存'));
   const area = el('div', {class: 'upload-area'}), label = el('label', {}, '上传生产单（单个文件最大100MB）'), input = el('input', {type: 'file', accept: '.pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg', 'aria-label': '上传生产单'}), status = el('p', {class: 'upload-status', 'aria-live': 'polite'});
   state.editor.attachment = typeof project?.source_attachment === 'object' ? project.source_attachment.id : (project?.source_attachment || '');
-  label.append(input); area.append(label, el('p', {class: 'field-help'}, '上传仅留存原件，字段仍需人工录入。自动识别待真实样本接入。'), status); source.append(area); body.append(source);
+  label.append(input); area.append(label, el('p', {class: 'field-help'}, '此处上传用于留存原件；邮箱附件可在总览自动提取并核对后建立项目。'), status); source.append(area); body.append(source);
   function showAttachment(id, filename) { clear(status); status.append(document.createTextNode(`${filename || '生产单'} · 已留存 `), el('a', {href: '/api/lantern/orders/' + encodeURIComponent(id), download: ''}, '下载原件')); }
   if (state.editor.attachment) showAttachment(state.editor.attachment);
   input.addEventListener('change', async () => {
@@ -499,7 +615,7 @@ function documentWarnings() {
 async function openDocuments() {
   if (!canEdit()) return;
   $('doc-form').reset(); clear($('doc-fields')); documentError();
-  state.documentForm = {dirty: false, busy: false, sources: {}, warnings: {}};
+  state.documentForm = {dirty: false, busy: false, sources: {}, warnings: {}, inboxSources: {}};
   documentBusy(false);
   documentWarnings(); $('doc-pi-status').textContent = ''; $('doc-packing-status').textContent = '';
   const target = $('doc-fields');
@@ -558,7 +674,7 @@ async function extractDocument(kind) {
       if ((type === 'weight' && value !== 'kg') || (type === 'volume' && value !== 'm3')) { warnings.push(`原表${type === 'weight' ? '重量' : '体积'}单位为「${String(value)}」，请核对是否可用${type === 'weight' ? 'kg' : 'm³'}填写；本页不会自动换算。`); continue; }
       input.value = String(value);
     }
-    current.sources[kind] = result.attachment_id || ''; current.warnings[kind] = warnings; current.dirty = true;
+    delete current.inboxSources[kind]; current.sources[kind] = result.attachment_id || ''; current.warnings[kind] = warnings; current.dirty = true;
     $('doc-confirmed').checked = false; documentWarnings(); status.textContent = `${file.name} · 已提取，请核对下方字段${result.attachment_id ? '（原件已留存）' : ''}。`;
   } catch (error) { if (state.documentForm === current) { status.textContent = '提取未完成，可重试或手填。'; documentError(error.message); } }
   finally { if (state.documentForm === current) documentBusy(false); }
@@ -575,7 +691,7 @@ async function generateDocuments(event) {
   if (fields.amount && !fields.currency) { documentError('总金额已填写，请确认对应币种。'); return; }
   const epoch = state.epoch; documentBusy(true);
   try {
-    const response = await fetch('/api/lantern/documents/generate', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf}, body: JSON.stringify({template_id: $('doc-template').value, fields, source_ids: [...new Set(Object.values(current.sources).filter(Boolean))], confirmed: true})});
+    const response = await fetch('/api/lantern/documents/generate', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf}, body: JSON.stringify({template_id: $('doc-template').value, fields, source_ids: [...new Set(Object.values(current.sources).filter(Boolean))], inbox_sources: Object.values(current.inboxSources || {}), confirmed: true})});
     if (epoch !== state.epoch || state.documentForm !== current) return;
     if (response.status === 401) { showLogin('登录已过期，请重新登录后制作报关资料。'); return; }
     if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(typeof result.error === 'string' ? result.error : `生成失败（${response.status}）`); }
@@ -802,7 +918,7 @@ $('close-editor').addEventListener('click', () => closeEditor()); $('cancel-edit
 $('editor-dialog').addEventListener('cancel', event => { event.preventDefault(); closeEditor(); });
 $('editor-form').addEventListener('input', () => { state.dirty = true; }); $('editor-form').addEventListener('change', () => { state.dirty = true; });
 $('editor-form').addEventListener('submit', submitEditor);
-window.addEventListener('beforeunload', event => { if ((state.editor && state.dirty) || state.documentForm?.dirty) { event.preventDefault(); event.returnValue = ''; } });
-setInterval(() => { if (!document.hidden && state.user && !state.user.must_change_password && !state.editor && !(state.page === 'documents' && state.documentForm)) loadData({quiet: true}); }, 30000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && state.user && !state.editor && !(state.page === 'documents' && state.documentForm) && (!state.lastRefresh || Date.now() - state.lastRefresh.getTime() > 30000)) loadData({quiet: true}); });
+window.addEventListener('beforeunload', event => { if ((state.editor && state.dirty) || state.documentForm?.dirty || state.review?.dirty || state.emailDirty) { event.preventDefault(); event.returnValue = ''; } });
+setInterval(() => { if (!document.hidden && state.user && !state.user.must_change_password && !state.editor && !state.review && !(state.page === 'documents' && state.documentForm)) loadData({quiet: true}); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.user && !state.editor && !state.review && !(state.page === 'documents' && state.documentForm) && (!state.lastRefresh || Date.now() - state.lastRefresh.getTime() > 30000)) loadData({quiet: true}); });
 bootstrap();

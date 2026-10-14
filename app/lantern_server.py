@@ -13,7 +13,7 @@ import uuid
 from http.cookies import SimpleCookie
 from http.server import ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import quote, unquote, urlparse, parse_qs
 
 from app import __version__
 from app.lantern_store import LanternStore, MAX_UPLOAD_BYTES, RevisionConflict
@@ -108,6 +108,24 @@ class LanternHandler(SafeHandler):
                 return self.json(self.server.store.snapshot())
             if path == "/api/jobs/current":
                 return self.json(self.server.jobs.status())
+            if path == "/api/lantern/inbox" or path.startswith("/api/lantern/inbox/"):
+                if user["auth_type"] != "session":
+                    return self.json({"error": "请在网页登录后核对邮箱附件"}, 403)
+                from app.lantern_inbox import EmailInbox
+                inbox = EmailInbox(self.server.store)
+                if path == "/api/lantern/inbox":
+                    query = parse_qs(urlparse(self.path).query)
+                    return self.json(inbox.listing(int(query.get("offset", ["0"])[0])))
+                document_id = path[len("/api/lantern/inbox/"):]
+                if document_id.endswith("/confirmed"):
+                    record = inbox.get(document_id[:-len("/confirmed")])
+                    if record["status"] != "confirmed":
+                        return self.json({"error": "此附件尚未核对，不能带入报关资料"}, 403)
+                    return self.json(record)
+                if document_id.endswith("/original"):
+                    record, content = inbox.original(document_id[:-len("/original")])
+                    return self.download(content, record["filename"])
+                return self.json(inbox.get(document_id))
             if path == "/api/lantern/settings/email":
                 if user["role"] != "admin" or user["auth_type"] != "session":
                     return self.json({"error": "请使用管理员网页登录邮箱设置"}, 403)
@@ -185,6 +203,11 @@ class LanternHandler(SafeHandler):
             user = upload_user or self.require(write=True, allow_password_change=method == "POST" and path in {"/api/password", "/api/logout"})
             if not user:
                 return
+            if path.startswith("/api/lantern/inbox/") and method == "POST" and path.endswith("/confirm"):
+                if user["role"] not in {"admin", "editor"}:
+                    return self.json({"error": "该账号只能查看附件"}, 403)
+                from app.lantern_inbox import EmailInbox
+                return self.json(EmailInbox(self.server.store).confirm(path[len("/api/lantern/inbox/"):-len("/confirm")], data, user))
             if path in {"/api/lantern/settings/email", "/api/lantern/settings/email/test"} and method == "POST":
                 if user["role"] != "admin" or not ipaddress.ip_address(self.client_address[0]).is_loopback:
                     return self.json({"error": "请在部署电脑上使用管理员账号设置邮箱"}, 403)
@@ -267,7 +290,7 @@ class LanternHandler(SafeHandler):
                     result["attachment_id"] = attachment["id"]
                     return self.json(result)
                 if path == "/api/lantern/documents/generate" and method == "POST":
-                    self.fields(data, {"template_id", "fields", "source_ids", "confirmed"})
+                    self.fields(data, {"template_id", "fields", "source_ids", "inbox_sources", "confirmed"})
                     if data.get("confirmed") is not True:
                         raise ValueError("请先核对PI信息和装箱合计")
                     source_ids = data.get("source_ids", [])
@@ -275,6 +298,14 @@ class LanternHandler(SafeHandler):
                         raise ValueError("资料来源编号无效")
                     for source_id in source_ids:
                         self.server.store.order_attachment(source_id)
+                    inbox_sources = data.get("inbox_sources", [])
+                    if not isinstance(inbox_sources, list) or len(inbox_sources) > 2:
+                        raise ValueError("邮箱附件核对来源无效")
+                    from app.lantern_inbox import EmailInbox
+                    for document_id in inbox_sources:
+                        record = EmailInbox(self.server.store).get(document_id)
+                        if record["status"] != "confirmed" or record["kind"] not in {"pi", "packing"}:
+                            raise ValueError("邮箱附件尚未核对，不能生成报关资料")
                     from app.lantern_documents import generate
                     body = generate(self.server.store.workspace, data.get("template_id"), data.get("fields"))
                     output_id = uuid.uuid4().hex
@@ -285,7 +316,7 @@ class LanternHandler(SafeHandler):
                     with self.server.store.connect() as conn:
                         conn.execute("INSERT INTO audit(time,username,action,item_id,details_json) VALUES(?,?,?,?,?)",
                                      (now(), user["username"], "lantern_customs_draft", output_id,
-                                      json.dumps({"template_id": data["template_id"], "source_ids": source_ids,
+                                      json.dumps({"template_id": data["template_id"], "source_ids": source_ids, "inbox_sources": inbox_sources,
                                                   "sha256": hashlib.sha256(body).hexdigest(), "confirmed": True})))
                     return self.download(body, "报关资料_待核对_" + output_id[:8] + ".xlsx",
                                          content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

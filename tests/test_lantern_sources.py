@@ -334,7 +334,7 @@ class LanternSourcesTests(unittest.TestCase):
         self.assertFalse(any("BODY.PEEK[]" in str(call.args) for call in connection.uid.call_args_list))
 
     def test_email_caps_message_bytes_before_fetching_body(self):
-        connection = self.imap(size=20 * 1024 * 1024 + 1)
+        connection = self.imap(size=150 * 1024 * 1024 + 1)
         with self.assertRaises(ValueError):
             self.collect_email(connection)
         self.assertFalse(any("BODY.PEEK[]" in str(call.args) for call in connection.uid.call_args_list))
@@ -384,13 +384,14 @@ class LanternSourcesTests(unittest.TestCase):
         self.assertTrue(any("截" in limitation for limitation in result["limitations"]))
 
     def test_oversized_email_attachment_is_not_saved_and_is_disclosed(self):
-        content = b"x" * (10 * 1024 * 1024 + 1)
+        content = b"x" * 1025
         connection = self.imap(synthetic_email(attachment=("synthetic-large.pdf", content)))
-        result, _ = self.collect_email(connection)
+        with patch("app.lantern_sources.MAX_ATTACHMENT_BYTES", 1024):
+            result, _ = self.collect_email(connection)
         self.assertEqual(len(result["messages"]), 1)
         saved = [path for path in (self.folder / "email_attachments").rglob("*") if path.is_file()]
         self.assertEqual(saved, [])
-        self.assertTrue(any("10MB" in limitation for limitation in result["limitations"]))
+        self.assertTrue(any("100MB" in limitation for limitation in result["limitations"]))
 
     def test_missing_email_password_never_opens_imap_connection(self):
         config = self.config(email=email_config())

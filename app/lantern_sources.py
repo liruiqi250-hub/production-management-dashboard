@@ -20,8 +20,8 @@ from app.store import TZ
 
 CONFIG_PATH = "private/lantern_sources.json"
 SECRET_PATH = "private/lantern_email_secret.json"
-MAX_EMAIL_BYTES = 20 * 1024 * 1024
-MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+MAX_EMAIL_BYTES = 150 * 1024 * 1024
+MAX_ATTACHMENT_BYTES = 100 * 1024 * 1024
 MAX_EMAILS = 1000
 MAX_BODY_CHARS = 16000
 EMAIL_ADDRESS = re.compile(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,63}")
@@ -241,7 +241,7 @@ def _internal_date(metadata):
         raise ValueError("邮件服务器内部收件时间格式无效") from exc
 
 
-def _email_text(message, destination, prefix):
+def _email_text(message, destination, prefix, documents=None):
     plain, html, attachments, limitations = [], [], [], []
     def body_parts(part):
         # 邮件附件自身可能也是multipart；不能把其子正文当成授权发件人的正文。
@@ -262,12 +262,15 @@ def _email_text(message, destination, prefix):
                 data = b"\n".join(child.as_bytes() for child in nested) if isinstance(nested, list) else part.as_bytes()
             name = re.sub(r'[\\/:*?"<>|\x00-\x1f\x7f]', "_", str(filename or "附件")).strip(" .")[:140] or "附件"
             if len(data) > MAX_ATTACHMENT_BYTES:
-                limitations.append("邮件附件" + name + "超过10MB，未留存或解析，请人工核对。")
+                limitations.append("邮件附件" + name + "超过100MB，未留存或解析，请人工核对。")
                 continue
             destination.mkdir(parents=True, exist_ok=True)
             path = destination / f"{prefix}_{index}_{name}"
             path.write_bytes(data)
             attachments.append(name)
+            if documents is not None and data:
+                documents.append({"filename": name, "path": str(path), "sha256": hashlib.sha256(data).hexdigest(),
+                                  "bytes": len(data), "part": str(index)})
             continue
         if part.get_content_type() not in {"text/plain", "text/html"}:
             limitations.append("邮件内嵌图片及其他非文字内容未送入本轮整理，需人工核对。")
@@ -288,12 +291,12 @@ def _email_text(message, destination, prefix):
         body = body[:MAX_BODY_CHARS]
         limitations.append("邮件正文超过16000字符已截断，本轮覆盖不完整，需人工查看原邮件。")
     if attachments:
-        body += "\n[附件已在本轮私有目录留存，正文未解析] " + "、".join(attachments)
-        limitations.append("邮件附件仅本机留存，附件正文未送入本轮整理，需人工核对。")
+        body += "\n[附件已在本轮私有目录留存，识别结果需另行核对] " + "、".join(attachments)
+        limitations.append("附件将单独提取并进入待核对资料；本邮件正文不冒充附件内容。")
     return body, limitations
 
 
-def _collect_email(root, folder, config, start, end):
+def _collect_email(root, folder, config, start, end, documents=None):
     secret_path = _local_file(root, config["credential_file"])
     try:
         secret = json.loads(secret_path.read_text("utf-8-sig"))
@@ -344,7 +347,7 @@ def _collect_email(root, folder, config, start, end):
                 header = _metadata_bytes(metadata)
                 size = re.search(rb"RFC822\.SIZE (\d+)", header, re.I)
                 if not size or int(size[1]) > MAX_EMAIL_BYTES:
-                    raise ValueError("邮件缺少大小或超过20MB，本轮未完整采集，请人工处理")
+                    raise ValueError("邮件缺少大小或超过150MB，本轮未完整采集，请人工处理")
                 when = _internal_date(header)
                 if not start <= when < end:
                     continue
@@ -356,7 +359,7 @@ def _collect_email(root, folder, config, start, end):
                     raise ValueError("邮件正文返回格式无效")
                 body_header, raw = literals[0]
                 if len(raw) > MAX_EMAIL_BYTES:
-                    raise ValueError("邮件正文超过20MB，本轮未完整采集")
+                    raise ValueError("邮件正文超过150MB，本轮未完整采集")
                 if len(raw) != int(size[1]):
                     raise ValueError("邮件正文长度与服务器大小不符，本轮采集不完整")
                 body_time = _internal_date(body_header)
@@ -367,7 +370,13 @@ def _collect_email(root, folder, config, start, end):
                 if len(senders) != 1 or (not config.get("all_senders") and not senders <= set(config["senders"])):
                     raise ValueError("邮件实际发件人超出明确授权范围")
                 prefix = folder_hash + "_" + uid.decode("ascii")
-                text, part_limits = _email_text(message, folder / "email_attachments", prefix)
+                attached = []
+                text, part_limits = _email_text(message, folder / "email_attachments", prefix, attached)
+                if documents is not None:
+                    for item in attached:
+                        documents.append({**item, "source_ref": "email:" + folder_hash + ":" + uid.decode("ascii"),
+                                          "time": when.isoformat(timespec="seconds"), "sender": next(iter(senders)),
+                                          "source": "邮箱:" + config["account"] + "/" + mailbox})
                 limitations.extend(part_limits)
                 messages.append({"ref": "email:" + folder_hash + ":" + uid.decode("ascii"),
                                  "time": when.isoformat(timespec="seconds"), "sender": next(iter(senders)),
@@ -395,16 +404,16 @@ def collect_sources(root, folder, config):
     folder.mkdir(parents=True, exist_ok=True)
     config = _validate_config(config)
     start, end = _window()
-    messages, limitations = [], ["本轮仅覆盖明确配置的彩灯来源及中国日期最近7天；整理发现须人工复核。"]
+    messages, documents, limitations = [], [], ["本轮仅覆盖明确配置的彩灯来源及中国日期最近7天；整理发现须人工复核。"]
     if config["wechat_groups"]:
         rows, limits = _collect_wechat(root, folder, config["wechat_groups"], start, end)
         messages.extend(rows)
         limitations.extend(limits)
     if config["email"]:
-        rows, limits = _collect_email(root, folder, config["email"], start, end)
+        rows, limits = _collect_email(root, folder, config["email"], start, end, documents)
         messages.extend(rows)
         limitations.extend(limits)
     refs = [message["ref"] for message in messages]
     if len(set(refs)) != len(refs):
         raise ValueError("来源消息引用重复，未导入本轮结果")
-    return {"messages": messages, "limitations": list(dict.fromkeys(limitations))}
+    return {"messages": messages, "documents": documents, "limitations": list(dict.fromkeys(limitations))}

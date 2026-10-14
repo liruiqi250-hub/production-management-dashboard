@@ -217,7 +217,7 @@ def extract_pi(rows):
         if match:
             following = [match[1]] if match[1] else []
             for later in lines[index + 1:]:
-                if re.match(r'^(?:INV|CONTRACT|CONTACT|DATE|TRADE|PAYMENT|SHIP)', later, re.I):
+                if re.match(r'^(?:INV|CONTRACT|CONTACT|DATE|TRADE|PAYMENT|SHIP|BANK|TOTAL|COMMODITY|贸易|金额|品名)', later, re.I):
                     break
                 following.append(later)
             if following:
@@ -253,6 +253,26 @@ def extract_pi(rows):
         if len(items) > 1:
             warnings.append('PI含多项商品，当前汇总品名和数量，生成前请核对能否合并为同一申报行')
     currencies = {x.upper() for x in re.findall(r'\b(?:USD|EUR|GBP|CNY|RMB|CAD|AUD)\b', text, re.I)}
+    explicit_totals = set()
+    for row in rows:
+        for index, cell in enumerate(row):
+            match = re.fullmatch(r'\s*(?:TOTAL\s*AMOUNT|总金额|金额合计)\s*[:：]?\s*(.*?)\s*', cell, re.I)
+            if not match:
+                continue
+            for value in ([match[1]] + row[index+1:]):
+                candidate = re.sub(r'^(?:USD|EUR|CNY|RMB|GBP|[$€£¥])\s*', '', value.strip(), flags=re.I)
+                try:
+                    explicit_totals.add(decimal_text(candidate))
+                except ValueError:
+                    continue
+    if len(explicit_totals) == 1:
+        total = next(iter(explicit_totals))
+        if fields.get('amount') and Decimal(fields['amount']) != Decimal(total):
+            warnings.append('PI明确总金额与可读明细合计不一致，已保留明确总金额，请对照原件核对。')
+        fields['amount'] = total
+    elif len(explicit_totals) > 1:
+        fields.pop('amount', None)
+        warnings.append('PI包含多个不同的明确总金额，请人工确认，不自动取其中一个。')
     if len(currencies) == 1:
         fields['currency'] = currencies.pop().upper()
     match = re.search(r'Date\s*[:：]\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})', text, re.I)

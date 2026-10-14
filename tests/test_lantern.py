@@ -103,6 +103,29 @@ class LanternTests(unittest.TestCase):
         self.assertEqual(self.request("GET", "/api/jobs/current", headers=credentials)[0], 200)
         self.assertEqual(self.request("POST", "/api/jobs", {}, credentials)[0], 400)
 
+    def test_email_inbox_confirmation_gate_permissions_and_revision(self):
+        from app.lantern_inbox import EmailInbox
+        from tests.test_lantern_inbox import PACKING
+        path=self.store.private/'lantern_jobs'/'fixture'/'装箱单.csv';path.parent.mkdir(parents=True);path.write_bytes(PACKING.encode())
+        entry={'filename':'装箱单.csv','path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':path.stat().st_size,
+               'source_ref':'email:fixture:17','source':'邮箱:synthetic@example.test/INBOX','sender':'supplier@example.test','time':'2026-10-14T08:00:00+08:00','part':'1'}
+        record,_=EmailInbox(self.store).ingest(entry,path.parent,'jianghong')
+        endpoint='/api/lantern/inbox/'+record['id'];admin=self.login();editor=self.login('editor_test');viewer=self.login('viewer_test')
+        self.assertEqual(self.request('GET',endpoint)[0],401)
+        self.assertEqual(self.request('GET',endpoint+'/confirmed',headers=admin)[0],403)
+        self.assertEqual(self.request('GET',endpoint+'/original',headers=editor)[2],path.read_bytes())
+        token=self.store.create_api_token('jianghong','Synthetic inbox test',7)
+        self.assertEqual(self.request('GET',endpoint,headers={'Authorization':'Bearer '+token['token']})[0],403)
+        payload={'revision':1,'kind':'packing','fields':record['fields'],'confirmed':True}
+        self.assertEqual(self.request('POST',endpoint+'/confirm',payload,viewer)[0],403)
+        self.assertEqual(self.request('POST',endpoint+'/confirm',payload,{'Cookie':editor['Cookie']})[0],403)
+        self.assertEqual(self.request('POST',endpoint+'/confirm',{**payload,'confirmed':False},editor)[0],400)
+        self.assertEqual(self.request('POST','/api/lantern/documents/generate',{'confirmed':True,'template_id':'dayang','fields':{},'inbox_sources':[record['id']]},admin)[0],400)
+        self.assertEqual(self.request('POST',endpoint+'/confirm',payload,editor)[0],200)
+        self.assertEqual(self.request('GET',endpoint+'/confirmed',headers=admin)[0],200)
+        self.assertEqual(self.request('POST',endpoint+'/confirm',payload,editor)[0],409)
+        self.assertEqual(EmailInbox(self.store).listing()['pending'],0)
+
     def test_staff_settings_only_password_and_no_existing_api_token_access(self):
         for username in ("viewer_test", "editor_test"):
             credentials = self.login(username)

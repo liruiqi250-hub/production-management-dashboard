@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import json
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -115,6 +116,23 @@ class LanternJobTests(unittest.TestCase):
         result["findings"].append({"kind": "shipment", "record_id": self.shipment["id"],
                                    "summary": "虚构出货信息待核对。", "evidence_refs": ["wx:1"]})
         validate_result(result, self.messages, self.store.snapshot())
+
+    def test_job_includes_attachment_text_in_codex_and_leaves_it_pending(self):
+        from app.lantern_inbox import EmailInbox
+        state=self.start_job();prompts=[]
+        def collect(root,folder,config):
+            path=folder/'PI.txt';path.write_bytes(b'Total Amount: USD 99.00\nSynthetic attachment analysis text')
+            entry={'filename':'PI.txt','path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':path.stat().st_size,
+                   'source_ref':'email:fixture:17','source':'mail fixture','sender':'supplier@example.test','time':'2026-10-14T08:00:00+08:00','part':'1'}
+            return {'messages':self.messages,'documents':[entry],'limitations':[]}
+        def codex(args,**kwargs):
+            prompts.append(kwargs['input'].decode('utf-8'));write_json(Path(args[args.index('--output-last-message')+1]),self.result)
+            return SimpleNamespace(returncode=0)
+        with patch('app.lantern_jobs.collect_sources',side_effect=collect),patch('app.lantern_jobs.subprocess.run',side_effect=codex):
+            self.assertEqual(self.jobs.run(state['id'],ACTOR),0)
+        self.assertIn('Synthetic attachment analysis text',prompts[0]);self.assertIn('email-attachment:',prompts[0])
+        self.assertEqual(EmailInbox(self.store).listing()['pending'],1)
+        self.assertEqual(len(self.store.snapshot()['projects']),1)
 
     def test_validate_rejects_forged_reference(self):
         result = copy.deepcopy(self.result)

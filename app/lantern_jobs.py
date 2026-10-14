@@ -293,6 +293,12 @@ class LanternJobs:
                 messages = _messages(payload.get("messages"))
                 source_limits = _limitations(payload.get("limitations", []))
                 store = LanternStore(self.root)
+                if payload.get("documents"):
+                    self._stage(job_id, "extracting", "正在识别邮箱附件：生产单、PI与装箱单，生成待核对资料")
+                    from app.lantern_inbox import ingest_documents
+                    attachment_messages, attachment_limits = ingest_documents(store, payload["documents"], folder, actor)
+                    messages = _messages(messages + attachment_messages)
+                    source_limits = _limitations(list(dict.fromkeys(source_limits + attachment_limits)))
                 snapshot = store.snapshot()
                 write_json(folder / "input.json", {"messages": messages, "previous": snapshot, "limitations": source_limits})
                 write_json(folder / "output_schema.json", result_schema())
