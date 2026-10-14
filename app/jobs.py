@@ -195,6 +195,9 @@ def candidate_schema(office=None):
     fields["evidence"] = {"type": "array", "items": evidence}
     fields["owner_basis"] = owner_basis
     fields["owner"] = owner_field
+    # 业务口头放行只确认所述阶段，不替代整单完工或客户验收。
+    fields["stage_confirmation"] = {"anyOf": [obj({"time": text, "locator": text, "scope": text}), {"type": "null"}]}
+    fields["work_completion"] = {"anyOf": [obj({"time": text, "locator": text, "scope": text}), {"type": "null"}]}
     sales = {key: text for key in ["id", "company", "status", "observed", "handling", "next_action", "category", "nature"]}
     sales.update({key: nullable for key in ["owner", "customer", "product", "historical_case_id", "progress_at", "progress_note"]})
     sales["owner_basis"] = owner_basis
@@ -260,6 +263,22 @@ def verify_candidates(root, production, after, result):
             if transcript and transcript not in original:
                 original += "\n[本地语音转写，待核听] " + transcript
             evidence.update(time=raw_time, sender=raw["sender"], text=original or "[消息内容待核对]")
+        confirmation = item.get("stage_confirmation")
+        if confirmation is not None:
+            match = next((e for e in item.get("evidence", []) if e["locator"] == confirmation.get("locator")
+                          and e["time"] == confirmation.get("time")), None)
+            if not match or not confirmation.get("scope", "").strip():
+                raise ValueError("业务阶段确认缺少可回查的消息、时间或限定范围")
+            if match["text"].strip() in {"好", "好的", "收到", "OK", "ok", "安排", "[视频]", "[图片]"}:
+                raise ValueError("单纯收悉、安排或媒体消息不能算业务阶段确认")
+            if len(match["text"].strip()) <= 4 and len(item.get("evidence", [])) < 2:
+                raise ValueError("简短口头同意缺少同一事项的上下文")
+        completion = item.get("work_completion")
+        if completion is not None:
+            match = next((e for e in item.get("evidence", []) if e["locator"] == completion.get("locator")
+                          and e["time"] == completion.get("time")), None)
+            if not match or not completion.get("scope", "").strip() or match["text"].strip() in {"好", "好的", "收到", "安排", "[视频]", "[图片]"}:
+                raise ValueError("现场完成反馈缺少直接原消息、时间或限定范围")
         if item.get("evidence"):
             item["first_seen"] = min(e["time"] for e in item["evidence"])
             item["last_seen"] = max(e["time"] for e in item["evidence"])
@@ -340,7 +359,10 @@ def run_job(root, job_id):
                       "输出格式{\"items\":[生产事项],\"after_sales_cases\":[售后事项],\"limitations\":[分析边界]}。"
                       "items各字段遵循schema，source_id/group匹配DATA.production；evidence时间为+08:00 ISO秒，locator=source_id|source_ref，text为原文片段，服务器会回填真实元数据。"
                       "first_seen/last_seen取本轮证据最早最晚时间，不夹带manual或历史证据。status只能待确认/待处理/处理中/待验证，禁止已解决；明确完成反馈先待验证。"
-                      "closure_scope写未闭环或已反馈阶段范围，closed_at=null，review_state=自动候选待李睿琪复核；未承诺deadline=null。" + RULE +
+                      "closure_scope写未闭环或已反馈阶段范围，closed_at=null，review_state=自动候选待李睿琪复核；未承诺deadline=null。"
+                      "stage_confirmation用于业务员/客户对同一具体阶段的口头认可：如上下文明确指向造型且回复可以、已确认、下一步，就填认可消息的准确time、locator及仅限该阶段的scope；否则填null。"
+                      "短句必须连同前面的具体提问或展示消息一并作为evidence。方案选择只算方案确认，发资料、收到、安排、内部自称完成、含争议或对象不明的回复不能冒充业务认可；认可也不等于整件制作完成、发货或客户最终验收。" + RULE +
+                      "work_completion用于内部人员明确说具体制作、调整或出货已完成的原消息，记录准确time、locator、scope；没有则null。它只代表现场反馈，不能据此写客户验收；发视频、说准备做、安排发货不能算完成。"
                       "每条list_summary写35至60字摘要，最多80字。仅有实质处理结果可增加progress_at、progress_locator、progress_note，三者对应证据。收到/安排/改负责人不算实质进展。"
                       "after_sales_cases每条id复用对应月份source_case_id；新事项用稳定AS-<来源>-<源消息id>，company只能大洋/云艺/金耐，include_in_total为bool；"
                       "status只能待检查/已给建议/资料已发/当次恢复/结果待核对/待并案，不得完成验收；包含observed,handling,next_action,customer,product,category,nature，未知留null；"

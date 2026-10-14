@@ -123,7 +123,7 @@ def build_report(snapshot: dict, kind: str, end_date: str) -> dict:
 
     sections = {key: [] for key in (
         "attention", "new", "updated", "closed", "progress", "unresolved",
-        "assignment_gaps", "closure_date_gaps", "date_gaps",
+        "assignment_gaps", "closure_date_gaps", "date_gaps", "stage_confirmed", "work_reported",
     )}
     future_evidence_count = 0
     after_end_update = False
@@ -150,6 +150,25 @@ def build_report(snapshot: dict, kind: str, end_date: str) -> dict:
             else:
                 evidence.append(entry)
         item["evidence"] = evidence
+        for event_field in ("stage_confirmation", "work_completion"):
+            event = item.get(event_field)
+            event_date = _date(event.get("time")) if isinstance(event, dict) else None
+            if event and (event_date is None or event_date > end or not any(
+                    e.get("locator") == event.get("locator") and e.get("time") == event.get("time")
+                    for e in evidence)):
+                item.pop(event_field, None)
+        confirmation = item.get("stage_confirmation")
+        confirmed_on = _date(confirmation.get("time")) if isinstance(confirmation, dict) else None
+        if confirmed_on is not None and start <= confirmed_on <= end and any(
+                e.get("locator") == confirmation.get("locator") and e.get("time") == confirmation.get("time")
+                for e in evidence):
+            sections["stage_confirmed"].append(item)
+        work = item.get("work_completion")
+        work_on = _date(work.get("time")) if isinstance(work, dict) else None
+        if work_on is not None and start <= work_on <= end and any(
+                e.get("locator") == work.get("locator") and e.get("time") == work.get("time")
+                for e in evidence):
+            sections["work_reported"].append(item)
         basis = item.get("owner_basis") or {}
         basis_dates = [_date(basis.get("checked_at"))] + [_date(e.get("time")) for e in basis.get("evidence", [])]
         if any(d is not None and d > end for d in basis_dates):
@@ -199,7 +218,7 @@ def build_report(snapshot: dict, kind: str, end_date: str) -> dict:
         _append_unique(limitations, "历史报告无法从当前快照完整还原过去的负责人、期限和状态变更；含期后更新的摘要已收起，请结合期末以前证据复核。")
     sections["unresolved"].sort(key=lambda row: _priority(row, end))
     sections["attention"] = sections["unresolved"][:8]
-    sections["progress"] = _unique(sections["new"] + sections["updated"] + sections["closed"])
+    sections["progress"] = _unique(sections["new"] + sections["updated"] + sections["closed"] + sections["stage_confirmed"] + sections["work_reported"])
     sections["assignment_gaps"] = [row for row in sections["unresolved"]
                                     if not _text(row.get("owner")).strip()
                                     or not _text(row.get("deadline")).strip()]
@@ -207,7 +226,9 @@ def build_report(snapshot: dict, kind: str, end_date: str) -> dict:
                       + sections["closure_date_gaps"] + sections["date_gaps"])
     counts = {
         "new": len(sections["new"]), "updated": len(sections["updated"]),
-        "closed": len(sections["closed"]), "unresolved": len(sections["unresolved"]),
+        "closed": len(sections["closed"]), "stage_confirmed": len(sections["stage_confirmed"]),
+        "work_reported": len(sections["work_reported"]),
+        "unresolved": len(sections["unresolved"]),
         "missing_owner": sum(not _text(row.get("owner")).strip() for row in sections["unresolved"]),
         "missing_deadline": sum(not _text(row.get("deadline")).strip() for row in sections["unresolved"]),
         "selected_items": len(visible),
@@ -217,7 +238,7 @@ def build_report(snapshot: dict, kind: str, end_date: str) -> dict:
                        for row in sections["unresolved"]),
     }
     label = "日报" if kind == "daily" else "周报"
-    summary = [f"本期新增 {counts['new']} 项，更早事项本期更新 {counts['updated']} 项，有明确解决日期的本期解决 {counts['closed']} 项。",
+    summary = [f"本期新增 {counts['new']} 项，更早事项本期更新 {counts['updated']} 项，业务明确认可阶段 {counts['stage_confirmed']} 项、现场反馈完成 {counts['work_reported']} 项，有明确解决日期的本期解决 {counts['closed']} 项。",
                f"截至期末仍未结 {counts['unresolved']} 项，其中期限早于期末且未结 {counts['overdue']} 项。",
                f"未结事项中负责人空缺 {counts['missing_owner']} 项、期限空缺 {counts['missing_deadline']} 项，需补充明确安排。"]
     return {
@@ -308,6 +329,10 @@ def _item_table(items: list[dict], rendered: set[str], empty: str = "暂无符�
     rows = []
     for item in items:
         scope = ('<br><span class="muted">关闭范围：' + _esc(item["closure_scope"]) + '</span>') if item.get("closure_scope") else ""
+        for field, label in (("stage_confirmation", "业务认可阶段"), ("work_completion", "现场完成反馈")):
+            event = item.get(field)
+            if isinstance(event, dict) and event.get("time") and event.get("locator"):
+                scope += '<br><span class="muted">' + label + '：' + _esc(event.get("scope")) + '（' + _esc(event.get("time")) + '；' + _esc(event.get("locator")) + '）</span>'
         note = ('<p class="warning">' + _esc(item["report_note"]) + '</p>') if item.get("report_note") else ""
         rows.append('<tr><td><strong>' + _paragraph(item.get("title"), "未命名事项") + '</strong>'
                     + '<br><span class="muted">' + _esc(item.get("id")) + " · " + _esc(item.get("category"))
@@ -450,53 +475,45 @@ def _brief_text(value: Any, limit: int, fallback: str = "待补充") -> str:
     return _esc(value if len(value) <= limit else value[:limit] + "…")
 
 
-def render_report_brief_html(report: dict) -> str:
-    """PDF专用管理简报：每项仅列一次，完整原文仍在详情HTML/CSV。"""
+def _brief_time(value: Any) -> str:
+    value = _text(value)
+    return _esc(value[:19].replace("T", " ") if value else "未记录")
+
+
+def render_report_brief_html(report: dict, completed_only: bool = False) -> str:
+    """领导版只列需要决策的重点；完成事项可按日期单独下载。"""
     period = report.get("period") or {}
     counts = report.get("counts") or {}
     coverage = report.get("coverage") or {}
     source_period = coverage.get("source_period") or {}
     sections = report.get("sections") or {}
     cards = "".join('<div class="metric"><b>' + _esc(counts.get(key, 0)) + '</b><span>' + label + '</span></div>'
-                    for key, label in (("new", "本期新增"), ("updated", "更早事项本期更新"),
-                                       ("closed", "本期解决"), ("unresolved", "期末未结")))
+                    for key, label in (("new", "本期新增"), ("stage_confirmed", "业务认可阶段"),
+                                       ("work_reported", "现场完成反馈"), ("unresolved", "台账待结")))
     attention = sections.get("attention") or []
     attention_html = '<ul class="attention">' + "".join(
         '<li><strong>' + _brief_text(item.get("title"), 48) + '</strong>：'
-        + _brief_text(item.get("next_step"), 65) + '</li>' for item in attention[:5]) + '</ul>'
+        + _brief_text(item.get("next_step"), 65) + '<br><span class="muted">'
+        + _brief_text(owner_description(item), 72) + '</span></li>' for item in attention[:5]) + '</ul>'
     if not attention:
         attention_html = '<p class="muted">暂无需优先列示的事项。</p>'
-    rows = []
-    for item in report.get("items") or []:
-        evidence = item.get("evidence") or []
-        review = _text(item.get("review_state"))
-        manual = "手工" in review or any(_text(entry.get("locator")).startswith("manual:") for entry in evidence)
-        prioritized = sorted(evidence, key=lambda entry: 0 if (
-            _text(entry.get("locator")).startswith("manual:") and manual
-            or entry.get("time") == item.get("closed_at") and item.get("closed_at")
-        ) else 1)
-        locators = list(dict.fromkeys(_text(entry.get("locator")) for entry in prioritized if entry.get("locator")))[:2]
-        locator_html = '<br>'.join(_esc(value) for value in locators) or "定位待补充"
-        status_note = '<br><span class="manual-note">含人工补录；不等同原消息或客户验收</span>' if manual else ""
-        note = '<p class="item-note">' + _esc(item["report_note"]) + '</p>' if item.get("report_note") else ""
-        rows.append('<tr data-item-id="' + _esc(item.get("id")) + '"><td><strong>'
-                    + _brief_text(item.get("title"), 70) + '</strong><br><span class="muted">'
-                    + _esc(item.get("id")) + ' · ' + _esc(item.get("category")) + '<br>'
-                    + _esc(item.get("group") or "来源群待核") + '</span><div class="locators">'
-                    + locator_html + '</div></td><td><strong>' + _esc(item.get("status") or "状态待核")
-                    + '</strong><br>跟进负责人：' + _esc(item.get("owner") or "未指定") + '<br><span class="muted">' + _esc(owner_description(item)) + '</span>'
-                    + '<br>期限：' + _esc(item.get("deadline") or "未指定")
-                    + '<br><span class="muted">' + _esc(review or "审核待核") + '</span>' + status_note
-                    + '</td><td><strong>进展：</strong>' + _brief_text(item.get("summary"), 120)
-                    + '<br><strong>下一步：</strong>' + _brief_text(item.get("next_step"), 80)
-                    + '<div class="scope"><strong>阶段关闭范围：</strong>'
-                    + _esc(item.get("closure_scope") or "未记录关闭范围；不能据状态推定客户验收。")
-                    + '</div>' + note + '</td></tr>')
-    table = ('<table class="items"><colgroup><col style="width:31%"><col style="width:20%">'
-             '<col style="width:49%"></colgroup><thead><tr><th>事项 / 来源 / 证据定位</th>'
-             '<th>状态 / 负责人 / 期限</th><th>进展、下一步与阶段关闭范围</th></tr></thead><tbody>'
-             + "".join(rows) + '</tbody></table>') if rows else '<p>本期无可列事项。</p>'
-    limitations = "；".join(_text(value) for value in report.get("limitations") or [])
+    completed = []
+    for key, field, label in (("stage_confirmed", "stage_confirmation", "业务认可阶段"),
+                              ("work_reported", "work_completion", "现场完成反馈")):
+        completed.extend((item, item.get(field) or {}, label) for item in sections.get(key) or [])
+    completed.sort(key=lambda row: _text(row[1].get("time")), reverse=True)
+    displayed = completed if completed_only else completed[:6]
+    completed_html = '<ol class="attention">' + ''.join(
+        '<li data-item-id="' + _esc(item.get("id")) + '"><strong>'
+        + _esc(label) + ' · ' + _brief_text(item.get("title"), 53) + '</strong>：'
+        + _brief_text(event.get("scope"), 95)
+        + '<br><span class="muted">' + _esc(event.get("time"))
+        + ' · 定位 ' + _esc(event.get("locator"))
+        + '</span></li>' for item, event, label in displayed) + '</ol>' if displayed else '<p class="muted">本期暂无有来源定位的完成或认可反馈。</p>'
+    if not completed_only and len(completed) > 6:
+        completed_html += '<p class="muted">另有 ' + str(len(completed) - 6) + ' 项，见同日“已完成事项”单独导出。</p>'
+    # 领导版只显示真正影响当日判断的覆盖缺口；全部限制保存在详情和CSV。
+    media_note = _media_text(coverage.get("media")) or "媒体覆盖未记录"
     return ('<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>'
             + _esc(report.get("title")) + ' · 管理简报</title><style>' + '''
 @page { size: A4 portrait; margin: 12mm 11mm; }
@@ -516,34 +533,50 @@ th { background: #eaf0f7; } thead { display: table-header-group; } tr { break-in
 footer { border-top: 1px solid #ccd6e2; margin-top: 9px; padding-top: 5px; font-size: 9px; color: #526175; }
 @media screen { body { background: #f1f4f8; } main { background: white; padding: 24px; } }
 </style></head><body><main>'''
-            + '<h1>' + _esc(report.get("title")) + ' · 管理简报</h1><p class="meta">版本 V'
+            + '<h1>' + _esc(report.get("title")) + (' · 已完成事项' if completed_only else ' · 领导简报') + '</h1><p class="meta">版本 V'
             + _esc(report.get("version")) + ' · 报告日期：' + _esc(period.get("start")) + ' 至 '
             + _esc(period.get("end")) + '（中国自然日）<br>来源快照生成：'
-            + _esc(report.get("source_generated_at")) + ' · 快照统计截止：'
-            + _esc(coverage.get("source_cutoff") or "未记录") + '</p><p class="notice">'
-            + _esc(SAMPLE_LIMITATION) + ' 本稿为简报节选，长文字以“…”标示；全部列示事项保留，完整证据见HTML详情、CSV台账与生产看板。</p>'
-            + '<div class="metrics">' + cards + '</div><p>'
-            + ' '.join(_esc(value) for value in report.get("executive_summary") or []) + '</p><p class="muted">'
-            + _esc(report.get("count_note")) + '</p><h2>主要关注（最多5项）</h2>' + attention_html
-            + '<h2>事项简表（每项一次，含全部历史未结）</h2><p class="muted">状态为当前快照记载；员工手工补录完成单独标识，不代表李睿琪已验收或客户已认可。已解决仅关闭下列阶段范围，不推定整机完工或发货。</p>'
-            + table + '<h2>来源覆盖、媒体缺口与统计限制</h2><div class="coverage"><p><strong>来源快照覆盖范围：</strong>'
-            + _esc(source_period.get("start") or "未记录") + ' 至 '
-            + _esc(source_period.get("end") or source_period.get("cutoff") or "未记录")
+            + _brief_time(report.get("source_generated_at")) + ' · 快照统计截止：'
+            + _brief_time(coverage.get("source_cutoff")) + '</p><p class="notice">'
+            + ('下列为有原消息定位的业务口头认可或现场完成反馈，按所述阶段记录；不代表整单完工或客户最终验收。'
+               if completed_only else '领导版只列当期完成节点与优先待办；详细历史台账、证据和全部限制见HTML、CSV及看板。')
+            + '</p>'
+            + ('' if completed_only else '<div class="metrics">' + cards + '</div><h2>需要关注（最多5项）</h2>' + attention_html)
+            + '<h2>' + ('本期已完成 / 已确认阶段' if completed_only else '本期完成节点（最多6项）') + '</h2>'
+            + completed_html + '<h2>范围与缺口</h2><div class="coverage"><p><strong>来源快照覆盖范围：</strong>'
+            + _brief_time(source_period.get("start")) + ' 至 '
+            + _brief_time(source_period.get("end") or source_period.get("cutoff"))
             + '；来源群 ' + _esc(len(coverage.get("groups") or [])) + ' 个；来源快照消息 '
-            + _esc(coverage.get("message_count", "未记录")) + ' 条；本稿列示事项 '
-            + _esc(counts.get("selected_items", len(report.get("items") or []))) + ' 项。</p><p><strong>范围提示：</strong>'
-            + _esc(coverage.get("range_note")) + '</p><p><strong>媒体覆盖与缺失：</strong>'
-            + _esc(_media_text(coverage.get("media")) or "未记录，请复核。") + '</p><p>'
-            + _esc(limitations) + '</p></div>' + after_sales_html(report) + '<footer>简报只压缩文字，不删未结事项；原消息证据与人工补录证据分别标示，完整内容见HTML详情、CSV台账与看板。</footer></main></body></html>')
+            + _esc(coverage.get("message_count", "未记录")) + ' 条。</p><p><strong>媒体：</strong>'
+            + _esc(media_note) + '</p><p>' + _esc(SAMPLE_LIMITATION)
+            + '</p></div><footer>完整证据、全部未结事项、售后历史及统计限制见HTML详情、CSV台账与看板。</footer></main></body></html>')
 
 
-def render_report_csv(report: dict) -> str:
+def render_report_csv(report: dict, completed_only: bool = False) -> str:
     """返回可编辑中文台账字符串，下载服务应以 utf-8-sig 编码。"""
+    if completed_only:
+        output = io.StringIO(newline="")
+        writer = csv.writer(output, lineterminator="\r\n")
+        writer.writerow(["报告日期", "类型", "事项编号", "事项", "确认或反馈时间", "具体完成范围",
+                         "当前台账状态", "后续待办", "来源群", "原消息定位", "原消息", "软件版本"])
+        sections = report.get("sections") or {}
+        for key, field, label in (("stage_confirmed", "stage_confirmation", "业务认可阶段"),
+                                  ("work_reported", "work_completion", "现场完成反馈")):
+            for item in sections.get(key) or []:
+                event = item.get(field) or {}
+                evidence = next((e for e in item.get("evidence") or [] if e.get("locator") == event.get("locator")
+                                 and e.get("time") == event.get("time")), {})
+                writer.writerow([_csv_cell(x) for x in (report.get("period", {}).get("end"), label,
+                                item.get("id"), item.get("title"), event.get("time"), event.get("scope"),
+                                item.get("status"), item.get("next_step"), item.get("group"),
+                                event.get("locator"), evidence.get("text"), report.get("version"))])
+        return output.getvalue()
     headers = ["报告类型", "报告开始日期", "报告结束日期", "事项编号", "事项", "类别", "状态",
                "负责人", "期限", "首次发生", "快照最近出现", "明确解决日期", "进展摘要", "下一步",
                "来源编号", "来源群", "审核状态", "关闭范围", "本期新增", "本期更新", "本期解决", "期末未结",
                "负责人期限空缺", "报告说明", "证据定位及原文", "来源快照覆盖范围", "来源快照统计截止",
-               "来源快照消息量", "媒体覆盖与缺失", "统计口径及限制", "软件版本", "负责人判断依据"]
+               "来源快照消息量", "媒体覆盖与缺失", "统计口径及限制", "软件版本", "负责人判断依据",
+               "业务认可时间", "业务认可范围", "业务认可定位", "现场完成反馈时间", "现场完成反馈范围", "现场完成反馈定位"]
     output = io.StringIO(newline="")
     writer = csv.writer(output, lineterminator="\r\n")
     writer.writerow(headers)
@@ -555,7 +588,9 @@ def render_report_csv(report: dict) -> str:
     period = report.get("period") or {}
     source_range = _text(source_period.get("start") or "未记录") + " 至 " + _text(source_period.get("end") or source_period.get("cutoff") or "未记录")
     restrictions = "\n".join([_text(report.get("count_note"))] + [_text(x) for x in report.get("limitations") or []])
-    items = report.get("items") or [{"title": "本期无可列事项", "report_note": "仍请核对来源快照覆盖与缺口。"}]
+    items = ((sections.get("stage_confirmed") or []) if completed_only else (report.get("items") or []))
+    if not items:
+        items = [{"title": "本期无可列事项", "report_note": "仍请核对来源快照覆盖与缺口。"}]
     for item in items:
         item_id = _text(item.get("id"))
         evidence = "\n\n".join(" | ".join(_text(entry.get(key)) for key in ("locator", "time", "sender", "text"))
@@ -569,8 +604,11 @@ def render_report_csv(report: dict) -> str:
         values.extend([item.get("report_note"), evidence, source_range, coverage.get("source_cutoff"),
                        coverage.get("message_count"), _media_text(coverage.get("media")), restrictions, report.get("version")])
         values.append(owner_description(item, detail=True))
+        for field in ("stage_confirmation", "work_completion"):
+            event = item.get(field) or {}
+            values.extend(event.get(key) for key in ("time", "scope", "locator"))
         writer.writerow([_csv_cell(value) for value in values])
-    for case in (report.get("after_sales") or {}).get("cases", []):
+    for case in ([] if completed_only else (report.get("after_sales") or {}).get("cases", [])):
         values = ["售后当前台账附录", period.get("start"), period.get("end"), case.get("id"),
                   case.get("observed"), case.get("category"), case.get("status"), case.get("owner"),
                   "", case.get("period"), case.get("progress_at"), "", case.get("handling"), case.get("next_action"),
@@ -578,5 +616,6 @@ def render_report_csv(report: dict) -> str:
         values.extend([""] * len(memberships))
         values.extend(["当前售后台账附录，不计报告期内新增故障", case.get("evidence"), case.get("period"), "", "", "", "已给建议/资料已发/当次恢复不等于完成验收", report.get("version")])
         values.append(owner_description(case, detail=True))
+        values.extend([""] * 6)
         writer.writerow([_csv_cell(value) for value in values])
     return output.getvalue()

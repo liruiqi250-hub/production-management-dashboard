@@ -28,7 +28,9 @@ class DashboardServer(ThreadingHTTPServer):
         self.store = store
         from app.after_sales import AfterSales
         from app.jobs import Jobs
+        from app.production import Production
         self.after_sales = AfterSales(store)
+        self.production = Production(store)
         self.jobs = Jobs(store.workspace)
         self.lan_ip = lan_ip
         self.network = ipaddress.ip_network(lan_ip + "/24", strict=False)
@@ -124,14 +126,14 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/health":
             return self.json({"status": "ready", "version": __version__,
                               "workspace_id": getattr(self.server, "workspace_id", "")})
-        if path in {"/", "/index.html", "/app.js", "/styles.css"}:
+        if path in {"/", "/index.html", "/app.js", "/production.js", "/styles.css"}:
             name = "index.html" if path == "/" else path.lstrip("/")
             target = ROOT / "web" / name
             if not target.is_file():
                 return self.json({"error": "页面文件未就绪"}, 503)
             body = target.read_bytes()
             self.send_response(200)
-            self.common_headers({"index.html": "text/html; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "styles.css": "text/css; charset=utf-8"}[name])
+            self.common_headers({"index.html": "text/html; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "production.js": "text/javascript; charset=utf-8", "styles.css": "text/css; charset=utf-8"}[name])
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             return self.wfile.write(body)
@@ -148,6 +150,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(snapshot)
         if path in {"/api/after-sales", "/api/v1/after-sales"}:
             return self.json(self.server.after_sales.snapshot())
+        if path in {"/api/production", "/api/v1/production"}:
+            return self.json(self.server.production.snapshot())
         if path == "/api/jobs/current":
             return self.json(self.server.jobs.status())
         if path == "/api/users":
@@ -165,6 +169,9 @@ class Handler(BaseHTTPRequestHandler):
                 kind = query.get("kind", ["daily"])[0]
                 end = query.get("end", [""])[0]
                 fmt = query.get("format", ["html"])[0]
+                view = query.get("view", ["report"])[0]
+                if view not in {"report", "completed"} or (view == "completed" and kind != "daily"):
+                    raise ValueError("导出视图无效")
                 if fmt not in {"html", "csv", "json", "pdf"}:
                     raise ValueError("导出格式无效")
                 snapshot = self.server.store.snapshot()
@@ -175,15 +182,15 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json(report)
                 if fmt == "pdf":
                     from app.pdf_export import render_report_pdf
-                    body = render_report_pdf(render_report_brief_html(report), ROOT)
+                    body = render_report_pdf(render_report_brief_html(report, completed_only=view == "completed"), ROOT)
                 else:
-                    content = render_report_csv(report) if fmt == "csv" else render_report_html(report)
+                    content = render_report_csv(report, completed_only=view == "completed") if fmt == "csv" else (render_report_brief_html(report, completed_only=True) if view == "completed" else render_report_html(report))
                     body = content.encode("utf-8-sig" if fmt == "csv" else "utf-8")
-                filename = f"生产管理_{'日报' if kind == 'daily' else '周报'}_{end}_V{__version__}.{fmt}"
+                filename = f"生产管理_{'当日完成' if view == 'completed' else ('日报' if kind == 'daily' else '周报')}_{end}_V{__version__}.{fmt}"
                 self.send_response(200)
                 # 离线报表有自包含打印样式，作为下载附件交付。
                 self.send_header("Content-Type", {"csv": "text/csv; charset=utf-8", "pdf": "application/pdf", "html": "text/html; charset=utf-8"}[fmt])
-                ascii_filename = f"production_{kind}_{end}_V{__version__}.{fmt}"
+                ascii_filename = f"production_{'completed' if view == 'completed' else kind}_{end}_V{__version__}.{fmt}"
                 self.send_header("Content-Disposition", f'attachment; filename="{ascii_filename}"; filename*=UTF-8\'\'' + quote(filename))
                 self.send_header("Cache-Control", "no-store")
                 self.send_header("X-Content-Type-Options", "nosniff")
@@ -253,6 +260,35 @@ class Handler(BaseHTTPRequestHandler):
                 if any(not isinstance(v, (str, type(None))) for v in data.values()):
                     raise ValueError("事项字段需为文字")
                 return self.json({"item": self.server.store.add_item(data, user["username"])}, 201)
+            if path == "/api/production/orders" and method == "POST":
+                if user["role"] != "admin":
+                    return self.json({"error": "生产单建档仅管理账号可操作"}, 403)
+                return self.json(self.server.production.add_order(data, user["username"]), 201)
+            if path == "/api/production/pieces" and method == "POST":
+                if user["role"] != "admin":
+                    return self.json({"error": "单件产品建档仅管理账号可操作"}, 403)
+                return self.json(self.server.production.add_piece(data, user["username"]), 201)
+            if path.startswith("/api/production/orders/") and method == "PATCH":
+                if user["role"] != "admin":
+                    return self.json({"error": "生产单资料仅管理账号可修改"}, 403)
+                order_id = unquote(path[len("/api/production/orders/"):])
+                return self.json(self.server.production.update_order(order_id, data, user["username"]))
+            if path.startswith("/api/production/pieces/") and method == "PATCH":
+                if user["role"] not in {"admin", "editor"}:
+                    return self.json({"error": "该账号仅有查看权限"}, 403)
+                suffix = unquote(path[len("/api/production/pieces/"):])
+                if suffix.endswith("/stage"):
+                    return self.json(self.server.production.update_stage(suffix[:-6], data, user["username"]))
+                if suffix.endswith("/delivery"):
+                    return self.json(self.server.production.update_delivery(suffix[:-9], data, user["username"]))
+                if suffix.endswith("/link"):
+                    after_sales_ids = {case["id"] for case in self.server.after_sales.snapshot()["cases"]}
+                    return self.json(self.server.production.link(suffix[:-5], data, user["username"], after_sales_ids))
+                if suffix.endswith("/unlink"):
+                    return self.json(self.server.production.unlink(suffix[:-7], data, user["username"]))
+                if user["role"] != "admin":
+                    return self.json({"error": "单件资料仅管理账号可修改"}, 403)
+                return self.json(self.server.production.update_piece(suffix, data, user["username"]))
             if path.startswith("/api/items/") and method == "PATCH":
                 if user["role"] not in {"admin", "editor"}:
                     return self.json({"error": "该账号仅有查看权限"}, 403)

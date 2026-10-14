@@ -505,6 +505,15 @@ def validate_snapshot(snapshot: dict[str, Any]) -> None:
             _nonempty(entry.get("text"), f"{locator}.text")
         if first != min(evidence_times) or last != max(evidence_times):
             _fail(f"{item_id}.first_seen/last_seen必须对应证据最早/最晚时间")
+        for field in ("stage_confirmation", "work_completion"):
+            confirmation = item.get(field)
+            if confirmation is not None:
+                if not isinstance(confirmation, dict) or not all(isinstance(confirmation.get(k), str) and confirmation[k].strip()
+                                                                for k in ("time", "locator", "scope")):
+                    _fail(f"{item_id}.{field}需含时间、定位和阶段范围")
+                if not any(entry["time"] == confirmation["time"] and entry["locator"] == confirmation["locator"]
+                           for entry in evidence):
+                    _fail(f"{item_id}.{field}未对应本项原消息")
         if item["status"] != "已解决":
             if item.get("closed_at") is not None:
                 _fail(f"{item_id}未解决时closed_at必须为空")

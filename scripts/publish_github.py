@@ -193,6 +193,17 @@ def _tracked(repo: Path) -> list[str]:
     return names
 
 
+def require_non_regressing_version(version: str, remote_version: str) -> None:
+    """在写入发布快照前阻止旧工作区覆盖较新的远端版本。"""
+    def core(value: str) -> tuple[int, int, int]:
+        match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?", value.strip())
+        if not match:
+            raise PublishError("无法核验远端与本机版本，拒绝覆盖发布快照")
+        return tuple(int(part) for part in match.groups())
+    if core(version) < core(remote_version):
+        raise PublishError(f"远端 V{remote_version.strip()} 高于本机 V{version}；须先合并远端功能，拒绝覆盖 main 或创建发布标签")
+
+
 def publish(source: Path, *, repo: str = DEFAULT_REPO, push: bool = False) -> dict[str, object]:
     source = source.resolve()
     repo, repo_name = _canonical_repo(repo)
@@ -238,6 +249,8 @@ def publish(source: Path, *, repo: str = DEFAULT_REPO, push: bool = False) -> di
     # 固定发布库的换行处理，避免 Windows 全局 autocrlf 在重新 clone 时改变代码字节。
     run(["git", "config", "--local", "core.autocrlf", "false"], cwd=target)
     run(["git", "fetch", "--tags", "origin", "main"], cwd=target, timeout=180)
+    remote_version = run(["git", "show", "origin/main:VERSION"], cwd=target).stdout.strip()
+    require_non_regressing_version(version, remote_version)
     run(["git", "pull", "--ff-only", "origin", "main"], cwd=target, timeout=180)
     source_history = set(run(["git", "rev-list", source_commit], cwd=source).stdout.splitlines())
     target_history = set(run(["git", "rev-list", "HEAD"], cwd=target).stdout.splitlines())

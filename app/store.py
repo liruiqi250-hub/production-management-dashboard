@@ -254,6 +254,12 @@ class Store:
                         for key in ("progress_at", "progress_note", "progress_locator"):
                             if key in old:
                                 merged[key] = old[key]
+                    if old.get("stage_confirmation") and (not merged.get("stage_confirmation") or
+                            old["stage_confirmation"]["time"] > merged["stage_confirmation"]["time"]):
+                        merged["stage_confirmation"] = old["stage_confirmation"]
+                    if old.get("work_completion") and (not merged.get("work_completion") or
+                            old["work_completion"]["time"] > merged["work_completion"]["time"]):
+                        merged["work_completion"] = old["work_completion"]
                     constrain_owner(merged, office)
                     conn.execute("UPDATE items SET base_json=? WHERE id=?", (json.dumps(merged, ensure_ascii=False), item["id"]))
                     updated += 1
@@ -272,6 +278,10 @@ class Store:
         from app.workdays import priority
         from app.office import office_policy
         office = office_policy(self.workspace)
+        from app.normalize import _stage_closures
+        registered_confirmations = _stage_closures()
+        work_path = self.workspace / "private" / "work_completions.json"
+        registered_work = json.loads(work_path.read_text("utf-8-sig")) if work_path.is_file() else {}
         with self.connect() as conn:
             meta = conn.execute("SELECT value_json FROM metadata WHERE key='snapshot'").fetchone()
             result = json.loads(meta[0]) if meta else {"version": "0.2.0", "coverage": {}, "period": {}, "generated_at": None}
@@ -292,6 +302,20 @@ class Store:
                 if overrides.get("manual_updated_at"):
                     base["last_seen"] = max(source_last_seen, overrides["manual_updated_at"])
                 base["evidence"] = base.get("evidence", []) + manual_evidence
+                registered = registered_confirmations.get(base["id"])
+                if registered and any(e.get("locator") == registered.get("locator") and
+                                      e.get("time") == registered.get("time") and
+                                      e.get("text") == registered.get("text") for e in base["evidence"]):
+                    existing_confirmation = base.get("stage_confirmation")
+                    if not existing_confirmation or registered["time"] > existing_confirmation["time"]:
+                        base["stage_confirmation"] = {key: registered[key] for key in ("time", "locator", "scope")}
+                reported = registered_work.get(base["id"])
+                if reported and any(e.get("locator") == reported.get("locator") and
+                                    e.get("time") == reported.get("time") and
+                                    e.get("text") == reported.get("text") for e in base["evidence"]):
+                    existing_completion = base.get("work_completion")
+                    if not existing_completion or reported["time"] > existing_completion["time"]:
+                        base["work_completion"] = {key: reported[key] for key in ("time", "locator", "scope")}
                 base["list_summary"] = list_summary(base, briefs.get(base["id"]))
                 base["priority"] = priority(base)
                 decorate_owner(base, overrides, office=office)

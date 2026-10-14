@@ -128,6 +128,20 @@ class ReportRangeTests(unittest.TestCase):
         self.assertEqual(report["counts"]["closed"], 0)
         self.assertEqual(report["sections"]["unresolved"][0]["status"], "待验证")
 
+    def test_stage_and_work_events_keep_open_followups_and_do_not_leak_future(self):
+        row = test_item("stage", "2026-10-12", "2026-10-14", status="待验证",
+                        evidence=[{"locator": "test:approval", "time": "2026-10-12", "sender": "业务", "text": "这个造型可以"},
+                                  {"locator": "test:work", "time": "2026-10-14", "sender": "工厂", "text": "已经出货"}],
+                        stage_confirmation={"time": "2026-10-12", "locator": "test:approval", "scope": "仅造型"},
+                        work_completion={"time": "2026-10-14", "locator": "test:work", "scope": "仅出货反馈"})
+        early = build_report(test_snapshot([row]), "daily", "2026-10-12")
+        self.assertEqual(early["counts"]["stage_confirmed"], 1)
+        self.assertEqual(early["counts"]["work_reported"], 0)
+        self.assertEqual(early["counts"]["unresolved"], 1)
+        later = build_report(test_snapshot([row]), "daily", "2026-10-14")
+        self.assertEqual(later["counts"]["work_reported"], 1)
+        self.assertEqual(later["counts"]["closed"], 0)
+
     def test_coverage_is_labelled_as_snapshot_when_daily_range_differs(self):
         report = build_report(test_snapshot([]), "daily", "2026-10-12")
         html = render_report_html(report)
@@ -169,29 +183,27 @@ class ReportRangeTests(unittest.TestCase):
 
 
 class ReportExportTests(unittest.TestCase):
-    def test_brief_lists_each_item_once_and_preserves_manual_scope_and_escaping(self):
+    def test_leader_brief_is_bounded_and_completion_export_is_daily(self):
         scope = '仅本轮造型确认，<script>不可扩展</script>，不含整机验收。'
         items = [test_item('brief-' + str(n), '2026-10-12', summary='长进展' * 100,
-                           next_step='下一步' * 100, closure_scope=scope,
-                           review_state='员工手工补录完成',
-                           evidence=[{'locator': 'manual:test-' + str(n), 'time': '2026-10-12', 'text': '人工说明'},
-                                     {'locator': 'test:original-' + str(n), 'time': '2026-10-12', 'text': '原消息'}])
+                           next_step='下一步' * 100,
+                           stage_confirmation={'time': '2026-10-12', 'locator': 'test:brief-' + str(n), 'scope': scope})
                  for n in range(7)]
         report = build_report(test_snapshot(items), 'daily', '2026-10-12')
         output = render_report_brief_html(report)
-        self.assertEqual(output.count('<tr data-item-id='), 7)
-        for item in items:
-            self.assertEqual(output.count('data-item-id="' + item['id'] + '"'), 1)
+        self.assertEqual(report['counts']['stage_confirmed'], 7)
+        self.assertEqual(output.count('data-item-id='), 6)
         self.assertEqual(output.count('<li>'), 5)
-        self.assertIn('员工手工补录完成', output)
-        self.assertIn('不代表李睿琪已验收', output)
+        self.assertIn('另有 1 项', output)
         self.assertNotIn('<script>', output)
         self.assertIn('&lt;script&gt;不可扩展&lt;/script&gt;', output)
-        self.assertIn('manual:test-6', output)
-        self.assertIn('简报节选', output)
-        self.assertIn('…', output)
         self.assertIn('来源快照覆盖范围', output)
-        self.assertIn('非全量故障统计', output)
+        completed = render_report_brief_html(report, completed_only=True)
+        self.assertEqual(completed.count('data-item-id='), 7)
+        self.assertNotIn('需要关注（最多5项）', completed)
+        csv_completed = list(csv.DictReader(io.StringIO(render_report_csv(report, completed_only=True))))
+        self.assertEqual(len(csv_completed), 7)
+        self.assertEqual({row['类型'] for row in csv_completed}, {'业务认可阶段'})
 
     def test_evidence_is_collapsible_escaped_and_not_repeated(self):
         attack = '<script>evidence_only_payload</script>'

@@ -5,10 +5,19 @@ import subprocess
 import tempfile
 import unittest
 
-from scripts.publish_github import PublishError, collect_files, require_committed, sync_files
+from scripts.publish_github import PublishError, collect_files, require_committed, sync_files, require_non_regressing_version
 
 
 class PublishGitHubTests(unittest.TestCase):
+    def test_older_workspace_cannot_replace_newer_remote(self):
+        with self.assertRaisesRegex(PublishError, "须先合并远端功能"):
+            require_non_regressing_version("0.2.14", "0.3.4")
+        require_non_regressing_version("0.3.5", "0.3.4")
+        require_non_regressing_version("0.3.10", "0.3.9")
+        require_non_regressing_version("0.3.4", "0.3.4")
+        with self.assertRaises(PublishError):
+            require_non_regressing_version("0.2.14", "unknown")
+
     def test_only_tracked_whitelisted_text_is_selected(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
