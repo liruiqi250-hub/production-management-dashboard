@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from app.communication import FILENAME, MAX_BYTES, explicit_short_reply_context, load_communication_profile
-from app.jobs import analysis_input
+from app.jobs import analysis_input, verify_candidates
 from app.jobs import Jobs, run_job, write_json
 
 
@@ -92,6 +92,20 @@ class CommunicationTests(unittest.TestCase):
         receipt = json.loads((jobs.path.parent / job_id / "communication_profile_receipt.json").read_text("utf-8"))
         self.assertTrue(receipt["loaded"])
         self.assertEqual(jobs.status()["state"], "completed")
+
+    def test_validation_reloads_manual_and_rejects_stale_analysis(self):
+        from tests.test_store_server import synthetic_snapshot
+        self.save(profile());write_json(self.root / "private/office_staff.json", OFFICE)
+        _, receipt = load_communication_profile(self.root, OFFICE)
+        period = synthetic_snapshot()['period']
+        from app.normalize import SOURCE_GROUPS
+        manifest = {'export_results': [{'source_id': k, 'group': v, 'status': 'verified_empty_range', 'message_count': 0} for k, v in SOURCE_GROUPS.items()], 'start_inclusive': period['start'], 'end_exclusive': period['end']}
+        output = {'items': [], 'after_sales_cases': [], 'limitations': []}
+        snapshot, _ = verify_candidates(self.root, manifest, {'export_results': []}, output, expected_profile_receipt=receipt)
+        self.assertEqual(snapshot['communication_profile_receipt'], receipt)
+        changed = profile();changed['rules'].append('新学到的合成反例须用于复核。');self.save(changed)
+        with self.assertRaisesRegex(ValueError, '最新版重新复核'):
+            verify_candidates(self.root, manifest, {'export_results': []}, output, expected_profile_receipt=receipt)
 
     def test_invalid_config_rejected_without_contents_in_error(self):
         cases = []

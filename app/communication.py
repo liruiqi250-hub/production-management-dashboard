@@ -97,7 +97,7 @@ def explicit_short_reply_context(match, evidence):
             if not 0 <= delta <= 3600:
                 continue
             text = other["text"].split("↳ 引用", 1)[0].strip()
-            stage = r"造型|纹理|纹路|钢架|方案|参考|光面|粘袜子|包海绵|下一步|做起走|整起走"
+            stage = r"造型|纹理|纹路|钢架|方案|参考|光面|粘袜子|包海绵|下一步|做起走|整起走|电瓶|天能|插座|模具|颜色|配色|色样|尺寸|预计日期|参数"
             question = r"可以.{0,30}[吗不？?]|可不可以|能不能|可否|是否|是不是|[？?]"
             if len(text) <= 300 and re.search(stage, text) and re.search(question, text):
                 return True
