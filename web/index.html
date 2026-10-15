@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>生产管理看板 V0.3.5</title><link rel="stylesheet" href="/styles.css?v=0.3.5"><script src="/app.js?v=0.3.5" defer></script><script src="/production.js?v=0.3.5" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>生产管理看板 V0.3.6</title><link rel="stylesheet" href="/styles.css?v=0.3.6"><script src="/app.js?v=0.3.6" defer></script><script src="/production.js?v=0.3.6" defer></script></head>
 <body>
 <section id="login-screen" class="login-screen">
-  <form id="login-form" class="login-card"><div class="brand-icon">产</div><h1>生产管理看板</h1><p class="muted">仿真恐龙 · 公司内网 · V0.3.5</p><label>账号<input name="username" autocomplete="username" required maxlength="32" placeholder="请输入授权账号"></label><label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="120"></label><p id="login-error" class="error" role="alert"></p><button class="primary" type="submit">登录看板</button><p class="small muted">仅限已授权人员。首次账号信息由李睿琪分配。</p></form>
+  <form id="login-form" class="login-card"><div class="brand-icon">产</div><h1>生产管理看板</h1><p class="muted">仿真恐龙 · 公司内网 · V0.3.6</p><label>账号<input name="username" autocomplete="username" required maxlength="32" placeholder="请输入授权账号"></label><label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="120"></label><p id="login-error" class="error" role="alert"></p><button class="primary" type="submit">登录看板</button><p class="small muted">仅限已授权人员。首次账号信息由李睿琪分配。</p></form>
 </section>
 <section id="password-required-screen" class="login-screen" hidden>
   <form id="first-password-form" class="login-card">
@@ -16,11 +16,11 @@
     <p id="first-password-error" class="error" role="alert"></p>
     <button class="primary" type="submit">保存新密码并重新登录</button>
     <button id="first-password-logout" type="button">退出登录</button>
-    <p class="small muted">公司内网 · V0.3.5</p>
+    <p class="small muted">公司内网 · V0.3.6</p>
   </form>
 </section>
 <div id="application" hidden>
-  <header class="topbar"><div class="brand"><div class="brand-icon">产</div><div><h1>生产管理</h1><p class="muted">仿真恐龙 · 订单问题与进度 <span class="version">V0.3.5</span></p></div></div><div class="userbar"><span id="user-name"></span><button id="refresh-button">刷新</button><button id="logout-button">退出</button></div></header>
+  <header class="topbar"><div class="brand"><div class="brand-icon">产</div><div><h1>生产管理</h1><p class="muted">仿真恐龙 · 订单问题与进度 <span class="version">V0.3.6</span></p></div></div><div class="userbar"><span id="user-name"></span><button id="refresh-button">刷新</button><button id="logout-button">退出</button></div></header>
   <nav class="navigation" aria-label="页面"><button data-page="overview" aria-current="page">厂长总览</button><button data-page="production">生产进度</button><button data-page="completed">单日已完成</button><button data-page="work">事项工作台</button><button data-page="after-sales">售后跟进</button><button data-page="coverage">数据覆盖</button><button data-page="access">账号与 Codex</button></nav>
   <main>
     <div id="global-error" class="error notice" role="alert" hidden></div>
