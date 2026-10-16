@@ -155,6 +155,12 @@ main { margin: 0 auto 0 var(--rail-width); padding: 24px 32px 40px; max-width: 1
 .section-heading { margin-bottom: 12px; align-items: baseline; }
 .section-heading span { font-variant-numeric: tabular-nums; }
 .priority-panel { padding: 20px 24px 8px; }
+.priority-panel .section-heading { flex-wrap: wrap; gap: 12px; }
+.priority-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.priority-tools label { flex-direction: row; align-items: center; gap: 8px; }
+.priority-tools select { min-width: 150px; }
+.priority-tools #priority-count { white-space: nowrap; }
+#priority-list .priority-owner { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .priority-panel>p { margin: 4px 0 12px; }
 #priority-list .item { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 14px 0; margin: 0; }
 #priority-list .item:hover { background: var(--brandbg); }
@@ -282,6 +288,9 @@ dialog::backdrop { background: rgba(16,26,43,.65); }
   .export-status { grid-column: 1/-1; }
   .panel, .priority-panel { padding: 16px; }
   .priority-panel { padding-bottom: 4px; }
+  .priority-tools { width: 100%; justify-content: space-between; }
+  .priority-tools label { flex: 1; min-width: 0; }
+  .priority-tools select { flex: 1; min-width: 0; }
   .priority-panel>p { font-size: 12px; }
   #priority-list .item { padding: 14px 0; }
   .metrics { margin: 20px 0 12px; }
