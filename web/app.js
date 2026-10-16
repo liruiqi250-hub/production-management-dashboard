@@ -1,6 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
-const state = {user:null,csrf:null,snapshot:null,page:'overview',selected:null,lanUrl:''};
+const state = {user:null,csrf:null,snapshot:null,page:'overview',selected:null,lanUrl:'',staffOwner:null,staffExpanded:false};
 const statuses = ['待确认','待处理','处理中','待验证','已解决'];
 function node(tag, attrs={}, text){const e=document.createElement(tag);for(const [k,v] of Object.entries(attrs)){if(k==='class')e.className=v;else e.setAttribute(k,v);}if(text!==undefined)e.textContent=String(text);return e;}
 function clear(e){e.replaceChildren();return e;}
@@ -8,7 +8,7 @@ function textDate(value){return value?String(value).replace('T',' ').slice(0,19)
 function dateOnly(value){return value?String(value).slice(0,10):'';}
 function showError(message){$('global-error').textContent=message;$('global-error').hidden=!message;}
 async function api(path, options={}){const method=options.method||'GET';const headers={...options.headers};if(options.body){headers['Content-Type']='application/json';options.body=JSON.stringify(options.body);}if(method!=='GET')headers['X-CSRF-Token']=state.csrf||'';const response=await fetch(path,{...options,headers,credentials:'same-origin'});const result=await response.json();if(!response.ok){if(response.status===401&&path!=='/api/login')showLogin();throw new Error(result.error||'请求失败');}return result;}
-function clearPrivateView(){state.snapshot=null;state.production=null;state.selected=null;for(const id of ['token-secret','new-user-secret','token-list','user-list','item-list','work-list','completed-list','item-detail','after-sales-list','priority-list','production-orders'])clear($(id));$('token-secret').hidden=true;$('new-user-secret').hidden=true;$('export-status').textContent='';$('password-form').reset();$('token-form').reset();if($('detail-dialog').open)$('detail-dialog').close();}
+function clearPrivateView(){state.snapshot=null;state.production=null;state.selected=null;state.staffOwner=null;state.staffExpanded=false;for(const id of ['token-secret','new-user-secret','token-list','user-list','item-list','work-list','completed-list','item-detail','after-sales-list','priority-list','staff-summary','staff-list','staff-list-title','staff-total','production-orders'])clear($(id));$('staff-detail').hidden=true;$('token-secret').hidden=true;$('new-user-secret').hidden=true;$('export-status').textContent='';$('password-form').reset();$('token-form').reset();if($('detail-dialog').open)$('detail-dialog').close();}
 function showLogin(){$('application').hidden=true;$('password-required-screen').hidden=true;$('login-screen').hidden=false;state.user=null;state.csrf=null;state.rangeEdited=false;state.priorityExpanded=false;$('priority-owner-filter').value='all';$('owner-filter').value='all';clearTimeout(jobTimer);lastJob=null;clearPrivateView();$('first-password-form').reset();$('first-password-error').textContent='';$('first-password-user').textContent='';$('login-form').password.value='';}
 function showPasswordRequired(){clearPrivateView();$('application').hidden=true;$('login-screen').hidden=true;$('password-required-screen').hidden=false;$('first-password-user').textContent=state.user.display_name+'（'+state.user.username+'）';$('first-password-form').reset();$('first-password-error').textContent='';}
 async function load(){try{const me=await api('/api/me');state.user=me.user;state.csrf=me.csrf;state.lanUrl=me.lan_url;if(me.user.must_change_password){showPasswordRequired();return;}state.snapshot=await api('/api/dashboard');state.production=await api('/api/production');$('password-required-screen').hidden=true;$('login-screen').hidden=true;$('application').hidden=false;const officeSelect=$('manual-item-form').querySelector('[name=owner]');clear(officeSelect);officeSelect.append(node('option',{value:''},'待分派'));for(const name of state.snapshot.office_staff||[])officeSelect.append(node('option',{value:name},name));$('user-name').textContent=me.user.display_name+' · '+({admin:'管理',editor:'处理事项',viewer:'查看'}[me.user.role]||'查看');$('user-management').hidden=me.user.role!=='admin';$('manual-item-panel').hidden=me.user.role!=='admin';$('run-button').hidden=me.user.role!=='admin';refreshJob();initFilters();render();showError('');}catch(e){if(state.user)showError(e.message);}}
@@ -127,6 +127,7 @@ $('first-password-form').addEventListener('submit',submitPassword);
 $('user-form').addEventListener('submit',async e=>{e.preventDefault();try{const user=await api('/api/users',{method:'POST',body:Object.fromEntries(new FormData(e.target))});const box=clear($('new-user-secret'));box.hidden=false;box.append(node('strong',{},'新增账号，请单独交给对应授权人。'),node('p',{},'账号：'+user.username));const field=node('input',{readonly:'','aria-label':'新增账号初始密码'});field.value=user.initial_password;field.addEventListener('focus',()=>field.select());box.append(node('span',{},'初始密码：'),field);e.target.reset();await loadAccess();}catch(err){showError(err.message);}});
 function concise(value,limit=80){const text=typeof value==='string'?value:value==null?'':JSON.stringify(value);return text.length>limit?text.slice(0,limit)+'…':text;}
 function renderUnified(){
+ renderStaffWorkload();
  initOwnerFilter('priority-owner-filter');
  const production=state.snapshot.items.filter(i=>i.priority?.urgent).map(i=>({...i,kind:'生产',days:i.priority.workdays}));
  const sales=(state.snapshot.after_sales?.cases||[]).filter(i=>i.priority?.urgent).map(i=>({...i,kind:'售后 · '+i.company,title:concise(i.observed||i.product||i.category,50),list_summary:concise(i.next_action),days:i.priority.workdays}));
@@ -147,6 +148,41 @@ let jobTimer=null,lastJob=null,jobLoading=false;
 async function refreshJob(){if(!state.user||jobLoading)return;jobLoading=true;clearTimeout(jobTimer);try{const job=await api('/api/jobs/current');const active=['queued','collecting','analyzing','validating','publishing'].includes(job.state);$('run-button').disabled=active;$('run-button').textContent=active?'整理运行中…':'立即整理';$('run-status').textContent=job.message+(job.started_at?' · 开始 '+textDate(job.started_at):'')+(job.finished_at?' · 结束 '+textDate(job.finished_at):'');if(lastJob&&lastJob.id===job.id&&lastJob.state!==job.state&&['completed','partial'].includes(job.state)){state.snapshot=await api('/api/dashboard');initFilters();render();}if(!active&&state.snapshot){const fresh=await api('/api/dashboard');if(state.user){state.snapshot=fresh;renderUnified();}}lastJob=job;jobTimer=setTimeout(refreshJob,active?4000:60000);}catch(error){if(state.user){$('run-status').textContent='任务状态读取失败：'+error.message;jobTimer=setTimeout(refreshJob,15000);}}finally{jobLoading=false;}}
 $('priority-more').addEventListener('click',()=>{state.priorityExpanded=!state.priorityExpanded;renderUnified();});
 $('priority-owner-filter').addEventListener('change',()=>{state.priorityExpanded=false;renderUnified();});
+
+function pendingStaffItems(){
+ const production=state.snapshot.items.filter(i=>i.status!=='已解决').map(i=>({...i,kind:'生产'}));
+ const sales=(state.snapshot.after_sales?.cases||[]).filter(i=>i.include_in_total&&i.status!=='完成验收').map(i=>({...i,kind:'售后 · '+i.company,title:concise(i.observed||i.product||i.category,50),list_summary:concise(i.next_action)}));
+ return [...production,...sales].sort((a,b)=>Number(Boolean(b.priority?.urgent))-Number(Boolean(a.priority?.urgent))||(b.priority?.workdays||0)-(a.priority?.workdays||0));
+}
+function renderStaffWorkload(){
+ const all=pendingStaffItems(),names=state.snapshot.office_staff||[],summary=$('staff-summary');
+ const focused=document.activeElement?.dataset.staffOwner;
+ if(state.staffOwner!==null&&state.staffOwner!==undefined&&!['all','unassigned',...names].includes(state.staffOwner)){state.staffOwner=null;state.staffExpanded=false;}
+ const matches=(items,key)=>items.filter(i=>key==='all'||(key==='unassigned'?!i.owner:i.owner===key));
+ const counts=items=>{const production=items.filter(i=>i.kind==='生产').length;return '生产 '+production+' · 售后 '+(items.length-production);};
+ $('staff-total').textContent='共 '+all.length+' 项未结';clear(summary);
+ for(const [key,name] of [['all','全部'],...names.map(name=>[name,name]),['unassigned','待分派']]){
+  const items=matches(all,key),b=node('button',{type:'button',class:'staff-person','data-staff-owner':key,'aria-pressed':String(state.staffOwner===key),'aria-controls':'staff-detail','aria-label':name+'，待处理 '+items.length+' 项，'+counts(items)});
+  b.append(node('span',{class:'staff-person-name'},name),node('strong',{class:'staff-person-count'},items.length),node('span',{class:'staff-person-breakdown'},counts(items)));
+  b.addEventListener('click',()=>{state.staffOwner=key;state.staffExpanded=false;renderStaffWorkload();});summary.append(b);
+ }
+ if(focused!==undefined)[...summary.children].find(b=>b.dataset.staffOwner===focused)?.focus({preventScroll:true});
+ const selected=state.staffOwner!==null&&state.staffOwner!==undefined;$('staff-detail').hidden=!selected;const list=clear($('staff-list'));
+ if(!selected){$('staff-list-title').textContent='';$('staff-more').hidden=true;return;}
+ const items=matches(all,state.staffOwner),name=state.staffOwner==='all'?'全部人员':state.staffOwner==='unassigned'?'待分派':state.staffOwner;
+ $('staff-list-title').textContent=name+' · 待处理 '+items.length+' 项（'+counts(items)+'）';
+ $('staff-more').hidden=items.length<=4;$('staff-more').textContent=state.staffExpanded?'收起为前4项':'展开全部 '+items.length+' 项';
+ if(!items.length){list.append(node('p',{class:'empty'},'暂无该跟进人的已登记未结事项。'));return;}
+ for(const item of items.slice(0,state.staffExpanded?items.length:4)){
+  const b=node('button',{type:'button',class:'item staff-item','aria-label':'查看'+item.kind+'事项：'+item.title}),top=node('div',{class:'item-top'});
+  top.append(node('span',{class:'item-title'},item.kind+' · '+item.title),badge(item.status));
+  if(item.priority?.urgent)top.append(node('span',{class:'urgent-tag'},'优先处理'));
+  b.append(top,node('div',{class:'item-meta'},'跟进人：'+(item.owner?ownerText(item):'待分派')),node('div',{class:'item-summary'},item.list_summary||item.next_step||'点击查看完整说明'),node('div',{class:'item-hint'},'查看详情 ›'));
+  b.addEventListener('click',()=>{if(item.kind==='生产')jumpToProductionItem(item.id);else jumpToAfterSalesCase(item.id);});list.append(b);
+ }
+}
+$('staff-close').addEventListener('click',()=>{const key=state.staffOwner;state.staffOwner=null;state.staffExpanded=false;renderStaffWorkload();[...$('staff-summary').children].find(b=>b.dataset.staffOwner===key)?.focus({preventScroll:true});});
+$('staff-more').addEventListener('click',()=>{state.staffExpanded=!state.staffExpanded;renderStaffWorkload();});
 $('after-sales-company').addEventListener('change',renderAfterSales);
 $('run-button').addEventListener('click',async()=>{$('run-button').disabled=true;try{lastJob=await api('/api/jobs',{method:'POST',body:{}});await refreshJob();}catch(error){showError(error.message);$('run-button').disabled=false;}});
 load();
