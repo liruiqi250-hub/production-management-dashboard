@@ -169,8 +169,9 @@ main { margin: 0 auto 0 var(--rail-width); padding: 24px 32px 40px; max-width: 1
 .context-notes { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-bottom: 24px; }
 .context-notes .notice { padding: 0; margin: 0; background: transparent; border: 0; color: var(--muted); flex: 1 1 300px; }
 .notice { border: 0; border-radius: 8px; padding: 12px 16px; line-height: 1.7; }
-.filters { display: grid; grid-template-columns: 150px 150px 140px minmax(160px,1fr); padding: 16px 20px; gap: 12px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin-bottom: 24px; }
-.filters .checkbox { grid-column: 1/-1; font-size: 12px; min-height: 26px; }
+.filters { display: grid; grid-template-columns: 150px 150px 140px minmax(160px,1fr) 150px; padding: 16px 20px; gap: 12px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin-bottom: 24px; }
+.filters .checkbox { display: flex; grid-column: 1/-1; font-size: 12px; min-height: 26px; }
+.filters .checkbox input { width: auto; flex: none; }
 .filters label { min-width: 0; }
 .checkbox input { accent-color: var(--brand); width: 16px; height: 16px; }
 .layout { grid-template-columns: minmax(0,1.1fr) minmax(320px,1fr); gap: 24px; }
@@ -245,6 +246,7 @@ dialog::backdrop { background: rgba(16,26,43,.65); }
   .page-heading .export-tools { width: 100%; }
   .metrics article { padding-inline: 12px; }
   .filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .filters .owner-filter-field { grid-column: 1/-1; }
 }
 @media (max-width: 900px) {
   .layout { grid-template-columns: minmax(0,1fr) minmax(300px,1fr); gap: 16px; }
