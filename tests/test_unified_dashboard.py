@@ -50,7 +50,7 @@ class SalesTests(unittest.TestCase):
 
     def test_reimport_preserves_manual_and_timer(self):
         original = self.sales.snapshot()["cases"][0]
-        actor = {"username": "synthetic", "display_name": "虚构员工", "role": "editor"}
+        actor = {"username": "liruiqi", "display_name": "李睿琪", "role": "admin"}
         self.sales.update(original["id"], {"status": "完成验收", "progress_note": "虚构现场验收说明"}, actor)
         self.sales.import_ledger(ledger(), "1" * 64)
         new = self.sales.snapshot()["cases"][0]
@@ -60,7 +60,7 @@ class SalesTests(unittest.TestCase):
 
     def test_owner_only_does_not_reset(self):
         original = self.sales.snapshot()["cases"][0]
-        actor = {"username": "synthetic", "display_name": "虚构员工", "role": "editor"}
+        actor = {"username": "liruiqi", "display_name": "李睿琪", "role": "admin"}
         self.sales.update(original["id"], {"owner": "张英"}, actor)
         self.assertNotIn("progress_at", self.sales.snapshot()["cases"][0])
         with self.assertRaises(ValueError):

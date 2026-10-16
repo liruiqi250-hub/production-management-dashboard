@@ -16,6 +16,7 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from app import __version__
 from app.store import Store
+from app.permissions import permission_profile, ItemPermissionError
 
 ROOT = Path(__file__).resolve().parents[1]
 COOKIE = "dino_session"
@@ -141,7 +142,9 @@ class Handler(BaseHTTPRequestHandler):
         if not user:
             return
         if path == "/api/me":
-            return self.json({"user": {k: v for k, v in user.items() if k not in {"csrf", "auth_type"}}, "csrf": user["csrf"], "version": __version__, "lan_url": f"http://{self.server.lan_ip}:{self.server.server_port}"})
+            public_user = {k: v for k, v in user.items() if k not in {"csrf", "auth_type"}}
+            public_user['permissions'] = permission_profile(user, self.server.store.workspace)
+            return self.json({"user": public_user, "csrf": user["csrf"], "version": __version__, "lan_url": f"http://{self.server.lan_ip}:{self.server.server_port}"})
         if path in {"/api/dashboard", "/api/v1/overview", "/api/v1/items"}:
             snapshot = self.server.store.snapshot()
             snapshot["after_sales"] = self.server.after_sales.snapshot()
@@ -242,7 +245,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("整理入口不接受自定义命令、路径或提示词")
                 return self.json(self.server.jobs.start(user["username"]), 202)
             if path.startswith("/api/after-sales/") and method == "PATCH":
-                if user["role"] not in {"admin", "editor"}:
+                if not permission_profile(user, self.server.store.workspace)['can_write']:
                     return self.json({"error": "该账号仅有查看权限"}, 403)
                 return self.json({"case": self.server.after_sales.update(unquote(path[len('/api/after-sales/'):]), data, user)})
             if path == "/api/logout" and method == "POST":
@@ -274,7 +277,7 @@ class Handler(BaseHTTPRequestHandler):
                 order_id = unquote(path[len("/api/production/orders/"):])
                 return self.json(self.server.production.update_order(order_id, data, user["username"]))
             if path.startswith("/api/production/pieces/") and method == "PATCH":
-                if user["role"] not in {"admin", "editor"}:
+                if not permission_profile(user, self.server.store.workspace)['can_write']:
                     return self.json({"error": "该账号仅有查看权限"}, 403)
                 suffix = unquote(path[len("/api/production/pieces/"):])
                 if suffix.endswith("/stage"):
@@ -290,7 +293,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": "单件资料仅管理账号可修改"}, 403)
                 return self.json(self.server.production.update_piece(suffix, data, user["username"]))
             if path.startswith("/api/items/") and method == "PATCH":
-                if user["role"] not in {"admin", "editor"}:
+                if not permission_profile(user, self.server.store.workspace)['can_write']:
                     return self.json({"error": "该账号仅有查看权限"}, 403)
                 item_id = unquote(path[len("/api/items/"):])
                 return self.json({"item": self.server.store.update_item(item_id, data, user["username"])})
@@ -314,6 +317,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.store.revoke_api_token(user["username"], path[len("/api/tokens/"):])
                 return self.json({"ok": True})
             return self.json({"error": "接口不存在"}, 404)
+        except ItemPermissionError as exc:
+            return self.json({"error": str(exc)}, 403)
         except (ValueError, KeyError, TypeError) as exc:
             return self.json({"error": str(exc)}, 400)
         except Exception:

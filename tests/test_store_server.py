@@ -48,11 +48,13 @@ class StoreServerTests(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.store = Store(self.directory.name)
         self.snapshot = synthetic_snapshot()
+        self.snapshot['items'][0]['owner'] = '张英'
         self.store.import_snapshot(self.snapshot)
         self.password = "Synthetic-Pass-123"
-        self.store.create_user("test_editor", "虚构处理人员", "editor")
+        self.store.create_user("test_editor", "张英", "editor")
+        self.store.create_user("test_viewer", "虚构查看人员", "viewer")
         with self.store.connect() as connection:
-            for username in ("liruiqi", "zengyue", "test_editor"):
+            for username in ("liruiqi", "zengyue", "test_editor", "test_viewer"):
                 salt = connection.execute("SELECT salt FROM users WHERE username=?", (username,)).fetchone()[0]
                 connection.execute("UPDATE users SET password_hash=?,must_change_password=0 WHERE username=?",
                                    (password_hash(self.password, salt), username))
@@ -97,7 +99,7 @@ class StoreServerTests(unittest.TestCase):
                 self.assertEqual(self.request("GET", path)[0], 401)
 
     def test_viewer_cannot_modify_production_or_create_users(self):
-        viewer = self.login("zengyue")
+        viewer = self.login("test_viewer")
         for method, path, data in (
             ("PATCH", "/api/items/SYNTHETIC-001", {"owner": "不应写入"}),
             ("POST", "/api/items", {"title": "不应新增"}),
@@ -241,9 +243,9 @@ class StoreServerTests(unittest.TestCase):
         item = json.loads(body)["item"]
         self.assertEqual(item["review_state"], "员工手工补录完成")
         self.assertEqual(item["completed_by"], "test_editor")
-        self.assertEqual(item["completed_by_name"], "虚构处理人员")
+        self.assertEqual(item["completed_by_name"], "张英")
         self.assertTrue(item["evidence"][-1]["locator"].startswith("manual:"))
-        self.assertEqual(item["evidence"][-1]["sender"], "虚构处理人员")
+        self.assertEqual(item["evidence"][-1]["sender"], "张英")
         self.store.import_snapshot(self.snapshot)
         self.assertEqual(self.store.snapshot()["items"][0]["status"], "已解决")
 
@@ -258,7 +260,7 @@ class StoreServerTests(unittest.TestCase):
 
     def test_manual_edits_preserved_on_reimport_and_reported_today(self):
         with patch("app.store.now", return_value="2026-10-12T16:00:00+08:00"):
-            self.store.update_item("SYNTHETIC-001", {"owner": "张英", "deadline": "2026-10-14", "status": "处理中"}, "liruiqi")
+            self.store.update_item("SYNTHETIC-001", {"owner": "张英", "owner_confirmation":"confirmed", "deadline": "2026-10-14", "status": "处理中"}, "liruiqi")
         incoming = copy.deepcopy(self.snapshot)
         incoming["items"][0]["owner"] = "郭逸"
         incoming["items"][0]["status"] = "待确认"

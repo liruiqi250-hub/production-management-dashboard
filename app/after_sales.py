@@ -106,8 +106,9 @@ class AfterSales:
                 "note": "已给建议、资料已发、当次恢复不等于完成验收；历史资料需核对当前结果"}
 
     def update(self, item_id, changes, actor):
-        if actor.get("role") not in {"admin", "editor"}:
-            raise ValueError("该账号仅有查看权限")
+        from app.permissions import permission_profile, require_item_edit, ItemPermissionError
+        if not permission_profile(actor, self.store.workspace)['can_write']:
+            raise ItemPermissionError("该账号仅有查看权限")
         if not changes or set(changes) - {"status", "owner", "owner_confirmation", "progress_note"} or any(not isinstance(v, str) or len(v) > (80 if k == "owner" else 2000) for k, v in changes.items()):
             raise ValueError("仅可修改售后状态、负责人及处理说明")
         if changes.get("status") and changes["status"] not in STATUSES:
@@ -118,10 +119,12 @@ class AfterSales:
         if changes.get("status") == "完成验收" and not note:
             raise ValueError("完成验收需填写实际结果和验收依据")
         with self.store.connect() as conn:
+            conn.execute('BEGIN IMMEDIATE')
             row = conn.execute("SELECT base_json,override_json FROM after_sales WHERE id=?", (item_id,)).fetchone()
             if not row:
                 raise KeyError("售后事项不存在")
             overrides = json.loads(row["override_json"])
+            actor = require_item_edit(conn, actor['username'], json.loads(row['base_json']), overrides, changes, self.store.workspace)
             from app.ownership import manual_owner
             from app.office import office_policy
             manual_owner(json.loads(row["base_json"]), overrides, changes, actor, office=office_policy(self.store.workspace))

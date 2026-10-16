@@ -7,6 +7,7 @@ import uuid
 from datetime import date
 
 from app.store import now
+from app.permissions import require_piece_edit
 
 STAGES = ("机械图", "钳工（机械、钢架）", "海绵（造型）", "裱糊（纹理、表皮）", "刷胶", "上色（喷色）")
 STATES = ("未核对", "未开始", "进行中", "待业务确认", "合格", "返工", "暂缓", "不适用")
@@ -170,6 +171,8 @@ class Production:
         if basis == "业务口头放行" and (state != "合格" or not source):
             raise ValueError("业务口头放行仅用于合格，须填写对应消息来源")
         with self.store.connect() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            require_piece_edit(conn, actor, piece_id, self.store.workspace)
             previous = conn.execute("SELECT state FROM production_stages WHERE piece_id=? AND stage=?", (piece_id, stage)).fetchone()
             if not previous:
                 raise ValueError("单件产品或工序不存在")
@@ -192,6 +195,8 @@ class Production:
         if state in {"部分交付", "已交付"} and not source:
             raise ValueError("部分交付或已交付须填写出货记录或消息来源")
         with self.store.connect() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            require_piece_edit(conn, actor, piece_id, self.store.workspace)
             previous = conn.execute("SELECT delivery_state FROM production_pieces WHERE id=?", (piece_id,)).fetchone()
             if not previous:
                 raise ValueError("单件产品不存在")
@@ -208,6 +213,8 @@ class Production:
         if kind not in {"production", "after_sales"}:
             raise ValueError("关联类型无效")
         with self.store.connect() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            require_piece_edit(conn, actor, piece_id, self.store.workspace, associations=True)
             if not conn.execute("SELECT 1 FROM production_pieces WHERE id=?", (piece_id,)).fetchone():
                 raise ValueError("单件产品不存在")
             if kind == "production":
@@ -228,6 +235,8 @@ class Production:
         if kind not in {"production", "after_sales"}:
             raise ValueError("关联类型无效")
         with self.store.connect() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            require_piece_edit(conn, actor, piece_id, self.store.workspace, associations=True)
             row = conn.execute("SELECT piece_id FROM production_links WHERE item_type=? AND item_id=?", (kind, item_id)).fetchone()
             if not row or row["piece_id"] != piece_id:
                 raise ValueError("此单件没有对应关联")

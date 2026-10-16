@@ -345,12 +345,13 @@ class Store:
 
     def update_item(self, item_id, changes, username):
         with self.connect() as conn:
-            actor = conn.execute("SELECT role,display_name FROM users WHERE username=? AND active=1", (username,)).fetchone()
+            actor = conn.execute("SELECT username,role,display_name FROM users WHERE username=? AND active=1", (username,)).fetchone()
         if not actor:
             raise ValueError("操作账号无效")
         is_admin = actor["role"] == "admin"
-        if actor["role"] not in {"admin", "editor"}:
-            raise ValueError("该账号仅有查看权限")
+        from app.permissions import permission_profile, require_item_edit, ItemPermissionError
+        if not permission_profile(dict(actor), self.workspace)['can_write']:
+            raise ItemPermissionError("该账号仅有查看权限")
         allowed = {"owner", "owner_confirmation", "deadline", "status", "closure_scope", "closure_note"}
         if not changes or set(changes) - allowed:
             raise ValueError("只支持负责人、期限、状态和关闭依据")
@@ -362,10 +363,12 @@ class Store:
             if len(changes.get(key) or "") > limit:
                 raise ValueError("字段内容过长")
         with self.connect() as conn:
+            conn.execute('BEGIN IMMEDIATE')
             row = conn.execute("SELECT * FROM items WHERE id=?", (item_id,)).fetchone()
             if not row:
                 raise KeyError("事项不存在")
             base, overrides = json.loads(row["base_json"]), json.loads(row["override_json"])
+            actor = require_item_edit(conn, username, base, overrides, changes, self.workspace)
             from app.ownership import manual_owner
             from app.office import office_policy
             manual_owner(base, overrides, changes, {"username": username, "display_name": actor["display_name"]}, office=office_policy(self.workspace))

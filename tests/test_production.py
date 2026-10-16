@@ -14,6 +14,9 @@ class ProductionProgressTests(unittest.TestCase):
         self.order = self.progress.add_order({"title": "测试生产单", "order_no": "T-001", "business_contact": "业务甲", "received_on": "2026-10-14"}, "liruiqi")["id"]
         self.piece_a = self.progress.add_piece({"order_id": self.order, "piece_label": "1号", "product_name": "测试恐龙"}, "liruiqi")["id"]
         self.piece_b = self.progress.add_piece({"order_id": self.order, "piece_label": "2号", "product_name": "测试恐龙"}, "liruiqi")["id"]
+        self.store.create_user('zhangying', '张英', 'editor')
+        item = self.store.add_item({'title':'测试本人跟进事项','owner':'张英'},'liruiqi')
+        self.progress.link(self.piece_a,{'item_type':'production','item_id':item['id']},'liruiqi')
 
     def test_business_agreement_affects_only_named_piece_and_stage(self):
         with self.assertRaisesRegex(ValueError, "消息来源"):
@@ -44,9 +47,9 @@ class ProductionProgressTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "单件编号已存在"):
             self.progress.add_piece({"order_id": self.order, "piece_label": "1号", "product_name": "另一件"}, "liruiqi")
         with self.assertRaisesRegex(ValueError, "生产事项不存在"):
-            self.progress.link(self.piece_a, {"item_type": "production", "item_id": "invented"}, "zhangying")
+            self.progress.link(self.piece_a, {"item_type": "production", "item_id": "invented"}, "liruiqi")
         with self.assertRaisesRegex(ValueError, "售后事项不存在"):
-            self.progress.link(self.piece_a, {"item_type": "after_sales", "item_id": "invented"}, "zhangying", set())
+            self.progress.link(self.piece_a, {"item_type": "after_sales", "item_id": "invented"}, "liruiqi", set())
 
     def test_master_correction_and_link_reversal(self):
         self.progress.update_order(self.order, {"order_no": "T-001-CORRECTED", "source_ref": "已核对正式生产单"}, "liruiqi")

@@ -89,7 +89,7 @@ function linkEditor(piece,editable){
 }
 function renderProduction(openId){
  const data=state.production;if(!data)return;
- const orders=data.orders||[],editable=['admin','editor'].includes(state.user?.role);
+ const orders=data.orders||[];
  $('production-admin').hidden=state.user?.role!=='admin';
  $('production-count').textContent=`${orders.length} 张生产单 · ${orders.reduce((sum,order)=>sum+order.pieces.length,0)} 件产品`;
  const orderSelect=clear($('piece-order'));
@@ -111,6 +111,7 @@ function renderProduction(openId){
   if(state.user?.role==='admin')wrapper.append(masterEditor('order',order));
   if(!order.pieces.length)wrapper.append(node('p',{class:'empty'},'这张生产单尚未登记单件产品。'));
   for(const piece of order.pieces){
+   const editable=canEditPiece(piece);
    const detail=node('details',{class:'production-piece','data-piece-id':piece.id});detail.open=piece.id===openId||orders.length===1&&order.pieces.length===1;
    const complete=piece.stages.filter(stage=>stage.state==='合格').length;
    const blocked=piece.stages.filter(stage=>['返工','暂缓','待业务确认'].includes(stage.state)).map(stage=>stage.stage);
@@ -122,7 +123,7 @@ function renderProduction(openId){
    if(state.user?.role==='admin')detail.append(masterEditor('piece',piece));
    const stages=node('div',{class:'stage-list'});
    for(const stage of piece.stages)stages.append(stageEditor(piece,stage,editable));
-   detail.append(stages,deliveryEditor(piece,editable),linkEditor(piece,editable));
+   detail.append(stages,deliveryEditor(piece,editable),linkEditor(piece,Boolean(state.user.permissions?.manage_all)));
    if(piece.updates.length){const history=node('details',{class:'production-history'});history.append(node('summary',{},`变更记录 ${piece.updates.length} 条`));for(const update of piece.updates)history.append(node('p',{class:'small'},`${textDate(update.updated_at)} · ${update.updated_by} · ${update.subject} ${update.old_value} → ${update.new_value}；${update.note||'未补说明'}${update.source_ref?' · '+update.source_ref:''}`));detail.append(history);}
    wrapper.append(detail);
   }
