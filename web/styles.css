@@ -158,6 +158,8 @@ main { margin: 0 auto 0 var(--rail-width); padding: 24px 32px 40px; max-width: 1
 .priority-panel>p { margin: 4px 0 12px; }
 #priority-list .item { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 14px 0; margin: 0; }
 #priority-list .item:hover { background: var(--brandbg); }
+#priority-list .priority-link-hint { display: block; margin-top: 8px; color: var(--brand); font-size: 12px; text-align: right; }
+#item-detail, .after-case { scroll-margin-top: 96px; }
 #priority-list .item p { margin: 4px 0 0; }
 .urgent-tag { color: var(--red); background: var(--redbg); font-size: 12px; border-radius: 4px; font-weight: 500; }
 .metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 0; border-block: 1px solid var(--line); margin: 24px 0 16px; }
