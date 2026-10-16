@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>生产管理看板 V0.3.11</title><link rel="stylesheet" href="/styles.css?v=0.3.11"><script src="/app.js?v=0.3.11" defer></script><script src="/production.js?v=0.3.11" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>生产管理看板 V0.3.12</title><link rel="stylesheet" href="/styles.css?v=0.3.12"><script src="/app.js?v=0.3.12" defer></script><script src="/production.js?v=0.3.12" defer></script></head>
 <body>
 <section id="login-screen" class="login-screen">
-  <form id="login-form" class="login-card"><div class="brand-icon">产</div><h1>生产管理看板</h1><p class="muted">仿真恐龙 · 公司内网 · V0.3.11</p><label>账号<input name="username" autocomplete="username" required maxlength="32" placeholder="请输入授权账号"></label><label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="120"></label><p id="login-error" class="error" role="alert"></p><button class="primary" type="submit">登录看板</button><p class="small muted">仅限已授权人员。首次账号信息由李睿琪分配。</p></form>
+  <form id="login-form" class="login-card"><div class="brand-icon">产</div><h1>生产管理看板</h1><p class="muted">仿真恐龙 · 公司内网 · V0.3.12</p><label>账号<input name="username" autocomplete="username" required maxlength="32" placeholder="请输入授权账号"></label><label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="120"></label><p id="login-error" class="error" role="alert"></p><button class="primary" type="submit">登录看板</button><p class="small muted">仅限已授权人员。首次账号信息由李睿琪分配。</p></form>
 </section>
 <section id="password-required-screen" class="login-screen" hidden>
   <form id="first-password-form" class="login-card">
@@ -16,18 +16,18 @@
     <p id="first-password-error" class="error" role="alert"></p>
     <button class="primary" type="submit">保存新密码并重新登录</button>
     <button id="first-password-logout" type="button">退出登录</button>
-    <p class="small muted">公司内网 · V0.3.11</p>
+    <p class="small muted">公司内网 · V0.3.12</p>
   </form>
 </section>
 <div id="application" hidden>
-  <header class="topbar"><div class="brand"><div class="brand-icon">产</div><div><h1>生产管理</h1><p class="muted">仿真恐龙 · 订单问题与进度 <span class="version">V0.3.11</span></p></div></div><div class="userbar"><span id="user-name"></span><button id="refresh-button">刷新</button><button id="logout-button">退出</button></div></header>
+  <header class="topbar"><div class="brand"><div class="brand-icon">产</div><div><h1>生产管理</h1><p class="muted">仿真恐龙 · 订单问题与进度 <span class="version">V0.3.12</span></p></div></div><div class="userbar"><span id="user-name"></span><button id="refresh-button">刷新</button><button id="logout-button">退出</button></div></header>
   <nav class="navigation" aria-label="页面"><button data-page="overview" aria-current="page">厂长总览</button><button data-page="production">生产进度</button><button data-page="completed">单日已完成</button><button data-page="work">事项工作台</button><button data-page="after-sales">售后跟进</button><button data-page="coverage">数据覆盖</button><button data-page="access">账号与 Codex</button></nav>
   <main>
     <div id="global-error" class="error notice" role="alert" hidden></div>
     <div class="run-bar panel"><div><strong>集中整理</strong><p id="run-status" class="small muted" role="status" aria-live="polite">正在读取任务状态…</p></div><button id="run-button" class="primary" hidden>立即整理</button></div>
     <section data-view="overview">
       <div class="page-heading"><div><h2>生产事项与跟进</h2><p class="muted" id="snapshot-label"></p></div><div class="export-tools"><label class="small">报告格式<select id="report-format"><option value="pdf">PDF 报告</option><option value="html">网页打印版 HTML</option><option value="csv">可编辑 CSV 台账</option></select></label><button id="daily-button" class="primary">导出领导日报</button><button id="completed-button">导出当日完成</button><button id="weekly-button">导出周报</button><p id="export-status" class="small muted export-status" role="status" aria-live="polite"></p></div></div>
-      <section class="panel staff-panel" aria-labelledby="staff-heading"><div class="section-heading"><h3 id="staff-heading">人员待处理</h3><span id="staff-total" class="small muted"></span></div><p class="small muted">全部已登记未结事项，不受日期筛选影响；生产与售后分别计数，售后待并案不重复计入。点击姓名查看清单。</p><div id="staff-summary" class="staff-summary" role="group" aria-label="按跟进人查看待处理事项"></div><div id="staff-detail" hidden><div class="section-heading"><h3 id="staff-list-title" role="status" aria-live="polite"></h3><button id="staff-close" type="button">收起清单</button></div><div id="staff-list"></div><button id="staff-more" type="button" hidden>展开全部</button></div></section>
+      <section class="panel staff-panel" aria-labelledby="staff-heading"><div class="section-heading"><h3 id="staff-heading">人员待处理</h3><span id="staff-total" class="small muted"></span></div><p class="small muted">全部已登记未结事项，不受日期筛选影响；生产与售后分别计数，售后待并案不重复计入。点击姓名查看清单。</p><p id="login-view-note" class="small muted"></p><div id="staff-summary" class="staff-summary" role="group" aria-label="按跟进人查看待处理事项"></div><div id="staff-detail" hidden><div class="section-heading"><h3 id="staff-list-title" role="status" aria-live="polite"></h3><button id="staff-close" type="button">收起清单</button></div><div id="staff-list"></div><button id="staff-more" type="button" hidden>展开全部</button></div></section>
       <section class="panel priority-panel"><div class="section-heading"><h3>优先处理 · 生产与售后</h3><div class="priority-tools"><label>跟进人<select id="priority-owner-filter"><option value="all">全部跟进人</option><option value="unassigned">待分派</option></select></label><span id="priority-count" class="small muted" role="status" aria-live="polite"></span></div></div><p class="small muted">连续3个工厂工作日无实质记录自动优先；周末计入，只扣国家放假日。查看、刷新、改负责人不重新计时。</p><div id="priority-list"></div><button id="priority-more" type="button" hidden>展开全部</button></section>
       <div class="metrics"><article><span>台账待结</span><strong id="metric-open">—</strong><small>含待推进的后续工作</small></article><article><span>已结事项</span><strong id="metric-closed">—</strong><small>仅按登记范围关闭</small></article><article><span>业务认可节点</span><strong id="metric-confirmed">—</strong><small>阶段许可另行记录</small></article><article><span>本轮读取消息</span><strong id="metric-messages">—</strong><small id="metric-groups">指定群采集</small></article></div>
       <div class="context-notes"><p id="sales-overview" class="notice"></p><div class="notice" id="coverage-notice"></div></div>

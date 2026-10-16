@@ -165,6 +165,9 @@ main { margin: 0 auto 0 var(--rail-width); padding: 24px 32px 40px; max-width: 1
 #staff-detail { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
 #staff-detail .section-heading { flex-wrap: wrap; gap: 8px; }
 #staff-list-title { font-size: 14px; overflow-wrap: anywhere; }
+#staff-detail { scroll-margin-top: 96px; }
+#login-view-note { margin-bottom: 12px; }
+#login-view-note:empty { display: none; }
 .priority-panel .section-heading { flex-wrap: wrap; gap: 12px; }
 .priority-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .priority-tools label { flex-direction: row; align-items: center; gap: 8px; }
