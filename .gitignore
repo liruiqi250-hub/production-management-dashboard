@@ -6,6 +6,14 @@ analysis/
 node_modules/
 runtime/
 vendor/
+!web/vendor/
+web/vendor/*
+!web/vendor/dingtalk-workbench.js
+!web/vendor/dingtalk-jsapi-package.json
+!web/vendor/dingtalk-jsapi-README.md
+!web/vendor/dingtalk-jsapi-NOTICE.md
+!web/vendor/dingtalk-jsapi-manifest.json
+!web/vendor/promise-polyfill-LICENSE.txt
 *.sqlite
 *.sqlite3
 *.db

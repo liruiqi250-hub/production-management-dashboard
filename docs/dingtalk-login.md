@@ -1,6 +1,6 @@
-# 钉钉登录 V0.3.17
+# 钉钉登录 V0.3.18
 
-本功能为钉钉OAuth授权登录。电脑在钉钉页面扫码，手机可用钉钉授权；不是已验收的钉钉JSAPI静默免登。现有12小时看板会话不延长。钉钉平台登录与授权所需联网仍须可用，看板本身继续仅在内网服务。
+本功能支持普通浏览器OAuth授权登录及钉钉工作台内自动登录。普通浏览器仍需点击使用钉钉登录；钉钉内打开时自动识别当前身份，沿用既有绑定进入本人事项。真实端内桥接须在实际钉钉客户端验收，不能以模拟结果代替。现有12小时看板会话不延长，平台身份接口所需联网仍须可用，看板本身继续仅在内网服务。
 
 ## 本机管理员配置
 
@@ -29,3 +29,14 @@
 - 授权失败时，本机 `private/dingtalk/<业务数据库文件名去掉.sqlite3>.last_failure.json` 只保留最近一次时间和受限错误标识，供管理员排查；不记录授权码、密钥、令牌、个人资料或接口响应原文，不向匿名页面返回诊断内容。
 
 接口依据：[钉钉官方授权码教程](https://open-dingtalk.github.io/developerpedia/docs/develop/permission/token/browser/get_user_app_token_browser/)、[官方SDK授权码接口](https://github.com/alibabacloud-go/dingtalk/blob/master/oauth2_1_0/client.go)、[官方SDK个人身份接口](https://github.com/alibabacloud-go/dingtalk/blob/master/contact_1_0/client.go)。
+
+## 工作台端内自动登录 V0.3.18
+
+- 在公司钉钉工作台点击应用，页面先显示身份识别状态；默认根首页无需更换地址。只在钉钉UA中自动运行桥接，普通浏览器不加载SDK或自动跳转。UA本身不构成身份凭据。
+- 固定企业应用token：POST `/v1.0/oauth2/{corpId}/token`；微应用免登码：`runtime.permission.requestAuthCode`；用户身份：POST `/topapi/v2/user/getuserinfo`。只取unionid，与原OAuth绑定共用同一企业和主体哈希，不额外读取人员详情、手机号或部门。不混用OAuth授权码与微应用免登码。
+- GET `/api/auth/dingtalk/workbench/start` 生成5分钟一次nonce和独立HttpOnly Strict cookie；POST `/api/auth/dingtalk/workbench/login` 要求精确同源Origin、nonce和cookie，网络交换前事务消费，失败不重放。应用token仅在服务内存中短期缓存，授权码与返回个人资料不入日志或数据库。
+- 成功后沿用原load/initLoginView：员工本人未结、管理全部，后端原逐事项权限照常检查。未绑定仅进入本人密码加明确勾选绑定页；被停用、必须改密和绑定冲突均按原规则。
+- 识别失败、SDK或原生回调超时显示恢复提示并保留原登录入口。退出只停留当前页，不立即再次免登；重新打开工作台时再识别。企业额外已开权限和应用可见范围均不更改。
+- SDK固定3.2.9，只打包需要的桥接，来源、完整性、许可见web/vendor及dependencies/dingtalk-jsapi-build.lock.json，重建见scripts/build_dingtalk_sdk.ps1。运行包接收电脑无需Node/npm。
+
+依据：[官方微应用免登示例](https://github.com/open-dingtalk/h5app-auth-demo)、[官方固定企业应用token协议](https://open-dingtalk.github.io/developerpedia/docs/develop/permission/single_to_multi/new_get_app_token/)。

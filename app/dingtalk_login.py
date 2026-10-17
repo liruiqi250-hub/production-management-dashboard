@@ -8,6 +8,8 @@ import json
 import re
 import secrets
 import sqlite3
+import threading
+import time
 import urllib.error
 import urllib.request
 from urllib.parse import urlencode, urlsplit
@@ -34,6 +36,8 @@ class DingTalkLogin:
     def __init__(self, store):
         self.store = store
         self.config = None
+        self._app_token = None
+        self._token_lock = threading.Lock()
         config_path = store.private / "dingtalk" / (store.path.stem + ".json")
         if not config_path.exists():
             return
@@ -68,6 +72,8 @@ class DingTalkLogin:
               CREATE TABLE IF NOT EXISTS dingtalk_identities(
                 corp_id TEXT NOT NULL,subject_hash TEXT NOT NULL,username TEXT NOT NULL,created_at TEXT NOT NULL,
                 PRIMARY KEY(corp_id,subject_hash),UNIQUE(corp_id,username));
+              CREATE TABLE IF NOT EXISTS dingtalk_workbench_states(
+                nonce_hash TEXT PRIMARY KEY,cookie_hash TEXT NOT NULL,expires TEXT NOT NULL);
             """)
 
     @property
@@ -118,6 +124,61 @@ class DingTalkLogin:
             conn.execute("DELETE FROM dingtalk_states WHERE state_hash=?", (digest(state),))
         # 在网络交换前消费state；回调重放或并发请求均不能再次交换授权码。
         subject = self.exchange(code)
+        return self.finish_identity(subject)
+
+    def workbench_start(self):
+        if not self.enabled:
+            raise LoginError("钉钉登录尚未配置，请使用原账号登录")
+        nonce, cookie = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+        expiry = (datetime.now(TZ) + timedelta(minutes=5)).isoformat(timespec="seconds")
+        with self.store.connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("DELETE FROM dingtalk_workbench_states WHERE expires<?", (now(),))
+            if conn.execute("SELECT count(*) FROM dingtalk_workbench_states").fetchone()[0] >= 500:
+                raise LoginError("登录请求较多，请稍后重试")
+            conn.execute("INSERT INTO dingtalk_workbench_states VALUES(?,?,?)", (digest(nonce), digest(cookie), expiry))
+        return {"nonce": nonce, "corpId": self.config["corp_id"]}, cookie
+
+    def workbench_login(self, nonce, cookie, code):
+        if not self.enabled or not all(isinstance(x, str) and 1 <= len(x) <= 4096 for x in (nonce, cookie, code)):
+            raise LoginError("本次钉钉识别已失效，请重新打开工作台应用")
+        with self.store.connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT 1 FROM dingtalk_workbench_states WHERE nonce_hash=? AND cookie_hash=? AND expires>?",
+                               (digest(nonce), digest(cookie), now())).fetchone()
+            if not row:
+                raise LoginError("本次钉钉识别已失效，请重新打开工作台应用")
+            conn.execute("DELETE FROM dingtalk_workbench_states WHERE nonce_hash=?", (digest(nonce),))
+        return self.finish_identity(self.exchange_workbench(code))
+
+    def exchange_workbench(self, code):
+        # 固定企业应用凭据换取固定企业token，不接受客户端传来的企业或用户身份。
+        with self._token_lock:
+            if not self._app_token or self._app_token[1] <= time.monotonic():
+                token = self._api("https://api.dingtalk.com/v1.0/oauth2/" + self.config["corp_id"] + "/token", {
+                    "client_id": self.config["client_id"], "client_secret": self.config["client_secret"],
+                    "grant_type": "client_credentials"})
+                access = token.get("access_token", "")
+                if not isinstance(access, str) or not re.fullmatch(r"[A-Za-z0-9._~+/=-]{8,4096}", access):
+                    raise LoginError("钉钉应用身份校验失败，请使用原账号登录", "workbench_app_token_invalid")
+                duration = token.get("expires_in", 0)
+                if not isinstance(duration, (int, float)) or not 120 <= duration <= 86400:
+                    raise LoginError("钉钉应用身份校验失败，请使用原账号登录", "workbench_token_expiry_invalid")
+                self._app_token = (access, time.monotonic() + min(duration - 60, 3600))
+            access = self._app_token[0]
+        profile = self._api("https://oapi.dingtalk.com/topapi/v2/user/getuserinfo?" + urlencode({"access_token": access}), {"code": code})
+        if profile.get("errcode") != 0:
+            if profile.get("errcode") in (40014, 42001):
+                with self._token_lock:
+                    self._app_token = None
+            raise LoginError("钉钉身份识别未完成，请重新打开工作台应用或使用原账号登录", "workbench_identity_rejected")
+        result = profile.get("result")
+        subject = result.get("unionid") if isinstance(result, dict) else None
+        if not isinstance(subject, str) or not 1 <= len(subject) <= 256 or any(ord(c) < 32 for c in subject):
+            raise LoginError("钉钉未返回有效身份，请使用原账号登录", "workbench_subject_invalid")
+        return subject
+
+    def finish_identity(self, subject):
         subject_hash = digest(subject)
         with self.store.connect() as conn:
             conn.execute("BEGIN IMMEDIATE")

@@ -1,0 +1,13 @@
+{
+  "sdk": "dingtalk-jsapi",
+  "version": "3.2.9",
+  "source": "https://registry.npmjs.org/dingtalk-jsapi/-/dingtalk-jsapi-3.2.9.tgz",
+  "license": "MIT",
+  "files": {
+    "dingtalk-jsapi-NOTICE.md": "d3ce7db4c4de91a33031af706c8eedee7dbe67c5179a6e54056bb6000eda91a9",
+    "dingtalk-jsapi-package.json": "8fddde5240ea6ca2745d5f72716b7d911cbd91182799161519716a85c203b9ce",
+    "dingtalk-jsapi-README.md": "49a80e5d0b43dadf0912e62c8fd8dd3a77f81dd5c23318c28c8af975aba9aaac",
+    "dingtalk-workbench.js": "4e83adb0b0934f7443d7bc0a6d3436b290b869d8a46f2e57b05996f2f2f33b49",
+    "promise-polyfill-LICENSE.txt": "453a712c58161b74efa998578aaf10fd7ad8204120730de38ca04d7f47f3ea46"
+  }
+}

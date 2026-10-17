@@ -152,6 +152,15 @@ class Handler(BaseHTTPRequestHandler):
             user = self.identity()
             return self.json(self.server.dingtalk.status(
                 self.cookie_value("dino_ding_binding"), user["username"] if user else None))
+        if path == "/api/auth/dingtalk/workbench/start":
+            from app.dingtalk_login import LoginError
+            try:
+                self.server.dingtalk.cancel_pending(self.cookie_value("dino_ding_binding"))
+                public, cookie = self.server.dingtalk.workbench_start()
+                return self.json(public, headers={"Set-Cookie": ["dino_ding_workbench=" + cookie + "; Path=/api/auth/dingtalk/workbench; HttpOnly; SameSite=Strict; Max-Age=300",
+                                                               "dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"]})
+            except LoginError:
+                return self.json({"error": "钉钉端内登录暂不可用，请使用原账号登录"}, 400)
         if path == "/auth/dingtalk/start":
             from app.dingtalk_login import LoginError
             ding = self.server.dingtalk
@@ -185,6 +194,16 @@ class Handler(BaseHTTPRequestHandler):
             except (LoginError, ValueError) as error:
                 self.server.dingtalk.record_failure(error)
                 return self.auth_redirect("/?dingtalk=failed", cookies)
+        if path == "/vendor/dingtalk-workbench.js":
+            target = ROOT / "web/vendor/dingtalk-workbench.js"
+            if not target.is_file():
+                return self.json({"error": "钉钉组件尚未安装完整"}, 503)
+            body = target.read_bytes()
+            self.send_response(200)
+            self.common_headers("text/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            return self.wfile.write(body)
         if path in {"/", "/index.html", "/app.js", "/production.js", "/styles.css"}:
             name = "index.html" if path == "/" else path.lstrip("/")
             target = ROOT / "web" / name
@@ -276,6 +295,24 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             data = self.body()
+            if path == "/api/auth/dingtalk/workbench/login" and method == "POST":
+                # 匿名身份交换也必须严格同源；UA和前端参数不能赋权。
+                if self.headers.get("Origin") not in {"http://" + h for h in self.server.allowed_hosts}:
+                    return self.json({"error": "登录请求来源不被允许"}, 403)
+                cookies = ["dino_ding_workbench=; Path=/api/auth/dingtalk/workbench; HttpOnly; SameSite=Strict; Max-Age=0"]
+                from app.dingtalk_login import LoginError
+                try:
+                    result = self.server.dingtalk.workbench_login(data.get("nonce"), self.cookie_value("dino_ding_workbench"), data.get("code"))
+                except LoginError as error:
+                    self.server.dingtalk.record_failure(error)
+                    return self.json({"error": str(error)}, 400, headers={"Set-Cookie": cookies})
+                if "pending" in result:
+                    cookies.extend([f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
+                                    f"dino_ding_binding={result['pending']}; Path=/; HttpOnly; SameSite=Strict; Max-Age=600"])
+                    return self.json({"binding_pending": True}, headers={"Set-Cookie": cookies})
+                cookies.extend([f"{COOKIE}={result['session']['token']}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200",
+                                "dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"])
+                return self.json({"binding_pending": False}, headers={"Set-Cookie": cookies})
             if path == "/api/login" and method == "POST":
                 username, password = data.get("username", ""), data.get("password", "")
                 if not isinstance(username, str) or not isinstance(password, str) or len(username) > 32 or len(password) > 120:
