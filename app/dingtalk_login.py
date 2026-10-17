@@ -177,6 +177,12 @@ class DingTalkLogin:
         subject = result.get("unionid") if isinstance(result, dict) else None
         if not isinstance(subject, str) or not 1 <= len(subject) <= 256 or any(ord(c) < 32 for c in subject):
             raise LoginError("钉钉未返回有效身份，请使用原账号登录", "workbench_subject_invalid")
+        try:
+            from app.dingtalk_notifications import record_leader_route
+            record_leader_route(self.store, self.config['corp_id'], subject, result.get('userid'))
+        except (OSError, ValueError, TypeError, KeyError):
+            # 通知路由配置异常不能影响原有免登；身份和权限仍由finish_identity校验。
+            pass
         return subject
 
     def finish_identity(self, subject):

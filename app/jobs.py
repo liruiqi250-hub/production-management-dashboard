@@ -452,7 +452,10 @@ def run_job(root, job_id):
                 report = build_report(published, kind, datetime.now(TZ).date().isoformat())
                 (folder / (kind + ".html")).write_text(render_report_html(report), encoding="utf-8")
                 (folder / (kind + ".csv")).write_text(render_report_csv(report), encoding="utf-8-sig")
-            stage("completed", "生产、售后、阶段复核和日报/周报已更新", finished_at=now(), production_items=len(snapshot["items"]), after_sales_items=len(ledger["cases"]), stage_closed=len(stage_review_result["closed"]))
+            from app.dingtalk_notifications import completed as notify_completed
+            notification = notify_completed(store, published, job_id)
+            write_json(folder / "notification_result.json", notification)
+            stage("completed", "生产、售后、阶段复核和日报/周报已更新", finished_at=now(), production_items=len(snapshot["items"]), after_sales_items=len(ledger["cases"]), stage_closed=len(stage_review_result["closed"]), notifications=notification)
     except Exception as exc:
         message = str(exc) if isinstance(exc, ValueError) else "后台执行异常，请查看本机任务日志"
         stage("partial" if imported else "failed", message + ("；数据已导入，报表归档待重试" if imported else "；上次正式台账保留"), finished_at=now())
