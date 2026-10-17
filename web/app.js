@@ -2,6 +2,30 @@
 const $ = id => document.getElementById(id);
 const state = {user:null,csrf:null,snapshot:null,page:'overview',selected:null,lanUrl:'',staffOwner:null,staffExpanded:false,defaultViewUser:null};
 const statuses = ['待确认','待处理','处理中','待验证','已解决'];
+const reportLinkKey='dashboard-notification-report';
+function pendingNotificationReport(){
+ try{
+  const incoming=new URLSearchParams(location.search).get('report');
+  if(incoming&&/^[a-f0-9]{32}$/.test(incoming))sessionStorage.setItem(reportLinkKey,JSON.stringify({id:incoming,at:Date.now()}));
+  const saved=JSON.parse(sessionStorage.getItem(reportLinkKey)||'null');
+  return saved&&/^[a-f0-9]{32}$/.test(saved.id)&&Date.now()-saved.at<600000?saved.id:null;
+ }catch(_error){return null;}
+}
+let notificationReport=pendingNotificationReport(),notificationReportBusy=false;
+async function downloadNotificationReport(){
+ if(!notificationReport||notificationReportBusy||!state.user||state.user.must_change_password)return;
+ notificationReportBusy=true;const status=$('export-status');status.textContent='正在准备卡片中的日报 PDF…';
+ try{
+  const response=await fetch('/api/notification-report?id='+notificationReport,{credentials:'same-origin'});
+  if(!response.ok){const result=await response.json();throw new Error(result.error||'日报下载失败，请重试');}
+  const blob=await response.blob(),url=URL.createObjectURL(blob),a=node('a',{href:url,download:'生产日报.pdf'});
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  notificationReport=null;sessionStorage.removeItem(reportLinkKey);
+  const query=new URLSearchParams(location.search);query.delete('report');history.replaceState(null,'',location.pathname+(query.size?'?'+query:'')+location.hash);
+  status.textContent='日报 PDF 已准备下载，请在钉钉或浏览器的下载列表中查看。';
+ }catch(error){status.replaceChildren(document.createTextNode(error.message+' '));const retry=node('button',{type:'button'},'重试下载日报 PDF');retry.addEventListener('click',downloadNotificationReport);status.append(retry);}
+ finally{notificationReportBusy=false;}
+}
 function node(tag, attrs={}, text){const e=document.createElement(tag);for(const [k,v] of Object.entries(attrs)){if(k==='class')e.className=v;else e.setAttribute(k,v);}if(text!==undefined)e.textContent=String(text);return e;}
 function clear(e){e.replaceChildren();return e;}
 function textDate(value){return value?String(value).replace('T',' ').slice(0,19):'未明确';}
@@ -11,7 +35,7 @@ async function api(path, options={}){const method=options.method||'GET';const he
 function clearPrivateView(){state.snapshot=null;state.production=null;state.selected=null;state.staffOwner=null;state.staffExpanded=false;state.defaultViewUser=null;for(const id of ['token-secret','new-user-secret','token-list','user-list','item-list','work-list','completed-list','item-detail','after-sales-list','priority-list','staff-summary','staff-list','staff-list-title','staff-total','login-view-note','production-orders'])clear($(id));$('staff-detail').hidden=true;$('token-secret').hidden=true;$('new-user-secret').hidden=true;$('export-status').textContent='';$('password-form').reset();$('token-form').reset();if($('detail-dialog').open)$('detail-dialog').close();}
 function showLogin(){$('application').hidden=true;$('password-required-screen').hidden=true;$('login-screen').hidden=false;state.user=null;state.csrf=null;state.rangeEdited=false;state.priorityExpanded=false;$('priority-owner-filter').value='all';$('owner-filter').value='all';clearTimeout(jobTimer);lastJob=null;clearPrivateView();$('first-password-form').reset();$('first-password-error').textContent='';$('first-password-user').textContent='';$('login-form').password.value='';}
 function showPasswordRequired(){clearPrivateView();$('application').hidden=true;$('login-screen').hidden=true;$('password-required-screen').hidden=false;$('first-password-user').textContent=state.user.display_name+'（'+state.user.username+'）';$('first-password-form').reset();$('first-password-error').textContent='';}
-async function load(){try{const me=await api('/api/me');state.user=me.user;state.csrf=me.csrf;state.lanUrl=me.lan_url;if(me.user.must_change_password){showPasswordRequired();return;}state.snapshot=await api('/api/dashboard');state.production=await api('/api/production');$('password-required-screen').hidden=true;$('login-screen').hidden=true;$('application').hidden=false;const officeSelect=$('manual-item-form').querySelector('[name=owner]');clear(officeSelect);officeSelect.append(node('option',{value:''},'待分派'));for(const name of state.snapshot.office_staff||[])officeSelect.append(node('option',{value:name},name));$('user-name').textContent=me.user.display_name+' · '+({admin:'管理',editor:'处理事项',viewer:'查看'}[me.user.role]||'查看');$('user-management').hidden=me.user.role!=='admin';$('manual-item-panel').hidden=me.user.role!=='admin';$('run-button').hidden=me.user.role!=='admin';refreshJob();initFilters();const personalHome=initLoginView();render();showError('');if(personalHome)requestAnimationFrame(()=>{if(state.user?.username===personalHome&&state.staffOwner!==null){$('staff-detail').scrollIntoView({block:'start'});$('staff-list-title').tabIndex=-1;$('staff-list-title').focus({preventScroll:true});}});}catch(e){if(state.user)showError(e.message);}}
+async function load(){try{const me=await api('/api/me');state.user=me.user;state.csrf=me.csrf;state.lanUrl=me.lan_url;if(me.user.must_change_password){showPasswordRequired();return;}state.snapshot=await api('/api/dashboard');state.production=await api('/api/production');$('password-required-screen').hidden=true;$('login-screen').hidden=true;$('application').hidden=false;const officeSelect=$('manual-item-form').querySelector('[name=owner]');clear(officeSelect);officeSelect.append(node('option',{value:''},'待分派'));for(const name of state.snapshot.office_staff||[])officeSelect.append(node('option',{value:name},name));$('user-name').textContent=me.user.display_name+' · '+({admin:'管理',editor:'处理事项',viewer:'查看'}[me.user.role]||'查看');$('user-management').hidden=me.user.role!=='admin';$('manual-item-panel').hidden=me.user.role!=='admin';$('run-button').hidden=me.user.role!=='admin';refreshJob();initFilters();const personalHome=initLoginView();render();showError('');downloadNotificationReport();if(personalHome)requestAnimationFrame(()=>{if(state.user?.username===personalHome&&state.staffOwner!==null){$('staff-detail').scrollIntoView({block:'start'});$('staff-list-title').tabIndex=-1;$('staff-list-title').focus({preventScroll:true});}});}catch(e){if(state.user)showError(e.message);}}
 function initFilters(){initOwnerFilter();const coverage=state.snapshot.coverage||{};const previous=$('group-filter').value;clear($('group-filter')).append(node('option',{value:'all'},'全部群'));for(const g of coverage.groups||[])$('group-filter').append(node('option',{value:g.source_id},g.group));if(state.snapshot.items.some(i=>i.source_id==='manual'))$('group-filter').append(node('option',{value:'manual'},'手工登记'));$('group-filter').value=[...$('group-filter').options].some(o=>o.value===previous)?previous:'all';if(!$('end-date').value||!state.rangeEdited){const end=new Date(Date.now()+8*3600000).toISOString().slice(0,10);$('end-date').value=end;const d=new Date(end+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-6);$('start-date').value=d.toISOString().slice(0,10);}}
 function initOwnerFilter(id='owner-filter'){const select=$(id),previous=select.value;clear(select);select.append(node('option',{value:'all'},'全部跟进人'),node('option',{value:'unassigned'},'待分派'));for(const name of state.snapshot.office_staff||[])select.append(node('option',{value:name},name));select.value=[...select.options].some(o=>o.value===previous)?previous:'all';}
 function initLoginView(){
@@ -241,7 +265,7 @@ async function workbenchLogin(){
   if(!start.ok)throw new Error('钉钉登录暂不可用，请使用原账号登录。');
   const challenge=await start.json();
   if(!window.DinoDingTalk)await new Promise((resolve,reject)=>{
-   const script=document.createElement('script');script.src='/vendor/dingtalk-workbench.js?v=0.3.20';
+   const script=document.createElement('script');script.src='/vendor/dingtalk-workbench.js?v=0.3.21';
    let settled=false;const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);error?reject(error):resolve();};
    const timer=setTimeout(()=>finish(new Error('钉钉组件加载超时，请重新打开工作台应用或使用原账号登录。')),8000);
    script.onload=()=>finish();script.onerror=()=>finish(new Error('钉钉组件未能加载，请使用原账号登录。'));document.head.append(script);

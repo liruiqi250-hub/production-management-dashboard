@@ -538,6 +538,7 @@ footer { border-top: 1px solid #ccd6e2; margin-top: 9px; padding-top: 5px; font-
             + _esc(period.get("end")) + '（中国自然日）<br>来源快照生成：'
             + _brief_time(report.get("source_generated_at")) + ' · 快照统计截止：'
             + _brief_time(coverage.get("source_cutoff")) + '</p><p class="notice">'
+            + (_esc(report['notification_label']) + '；内容固定为发送时归档版本。<br>' if report.get('notification_label') else '')
             + ('下列为有原消息定位的业务口头认可或现场完成反馈，按所述阶段记录；不代表整单完工或客户最终验收。'
                if completed_only else '领导版只列当期完成节点与优先待办；详细历史台账、证据和全部限制见HTML、CSV及看板。')
             + '</p>'

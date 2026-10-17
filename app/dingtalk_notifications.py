@@ -39,20 +39,23 @@ def record_leader_route(store, corp_id, subject, user_id):
     if not path.is_file():
         return
     config = json.loads(path.read_text('utf-8-sig'))
-    if config.get('capture_leader_route') is not True or config.get('leader', {}).get('username') != 'zengyue':
+    capture = ['zengyue'] if config.get('capture_leader_route') is True and config.get('leader', {}).get('username') == 'zengyue' else []
+    if config.get('capture_operator_route') is True:
+        capture.append('liruiqi')
+    if not capture:
         return
     if not isinstance(user_id, str) or not re.fullmatch(r'[A-Za-z0-9_+=:/.-]{1,512}', user_id):
         return
     subject_hash = digest(subject)
     with store.connect() as c:
-        row = c.execute('SELECT u.username FROM dingtalk_identities d JOIN users u ON d.username=u.username '
-                        'WHERE d.corp_id=? AND d.subject_hash=? AND u.username=? AND u.active=1',
-                        (corp_id, subject_hash, 'zengyue')).fetchone()
-    if not row:
+        rows = c.execute('SELECT u.username FROM dingtalk_identities d JOIN users u ON d.username=u.username '
+                         'WHERE d.corp_id=? AND d.subject_hash=? AND u.active=1', (corp_id, subject_hash)).fetchall()
+    row = next((row for row in rows if row['username'] in capture), None)
+    if row is None:
         return
-    route = {'username': 'zengyue', 'corp_id': corp_id, 'subject_hash': subject_hash, 'user_id': user_id,
+    route = {'username': row['username'], 'corp_id': corp_id, 'subject_hash': subject_hash, 'user_id': user_id,
              'verified_at': now(), 'source': '本人工作台免登身份与原绑定一致'}
-    target = path.parent / 'zengyue_notification_route.json'
+    target = path.parent / (row['username'] + '_notification_route.json')
     temporary = target.with_suffix('.tmp')
     temporary.write_text(json.dumps(route, ensure_ascii=False, indent=2), 'utf-8')
     temporary.replace(target)
@@ -156,6 +159,11 @@ class RobotClient:
     def send(self, channel, target, text):
         body = {'robotCode': self.robot_code, 'msgKey': 'sampleMarkdown',
                 'msgParam': json.dumps({'title': text.splitlines()[0], 'text': text}, ensure_ascii=False)}
+        if text.startswith('{"notification_card":'):
+            card = json.loads(text)['notification_card']
+            if card['msgKey'] != 'sampleActionCard2':
+                raise Rejected('卡片类型无效')
+            body.update(msgKey=card['msgKey'], msgParam=json.dumps(card['msgParam'], ensure_ascii=False))
         if channel == 'group':
             body['openConversationId'] = target
             path = '/v1.0/robot/groupMessages/send'
@@ -248,35 +256,42 @@ class Notifications:
                 messages = {k: '【延迟更新】\n' + v for k, v in messages.items()}
         else:
             messages = {k: '【推送连通测试】生产管理看板\n此消息仅验证固定接收通道，不是今日生产日报。\n打开看板：' + origin + '/' for k in ('group', 'leader')}
-        client = self.client or RobotClient(credentials, value['robot_code'])
+        if not test and value.get('presentation') == 'card' and value.get('cards_approved') is True:
+            from app.notification_cards import freeze_report, card_body
+            report_id = freeze_report(self.store, snapshot, day, '日报')
+            messages = {channel: card_body(text, origin, report_id) for channel, text in messages.items()}
         for channel, body in messages.items():
             target = value['group']['open_conversation_id'] if channel == 'group' else value['leader']['user_id']
             key = hashlib.sha256(f'{day}|{channel}|{target}|{"test" if test else "daily"}'.encode()).hexdigest()
-            with self.connect() as c:
-                c.execute('BEGIN IMMEDIATE')
-                c.execute('INSERT OR IGNORE INTO outbox VALUES(?,?,?,?,?,?,?,0,?,?,?)',
-                          (key, day, channel, target, body, job_id, 'pending', now(), '', ''))
-                row = c.execute('SELECT * FROM outbox WHERE id=?', (key,)).fetchone()
-                if row['state'] != 'pending' and not (retry_failed and row['state'] == 'rejected'):
-                    continue
-                # 首次快照和目标固定；重试不能替换消息正文。
-                try:
-                    client.prepare()
-                except Rejected:
-                    c.execute("UPDATE outbox SET state='rejected',error=?,updated_at=? WHERE id=?",
-                              ('应用令牌未取得，尚未发送', now(), key))
-                    continue
-                c.execute("UPDATE outbox SET state='sending',attempts=attempts+1,updated_at=?,error='' WHERE id=?", (now(), key))
-            try:
-                receipt = client.send(channel, target, row['body'])
-                state, error = 'accepted', ''
-            except Rejected as exc:
-                state, error, receipt = 'rejected', str(exc), ''
-            except Exception:
-                state, error, receipt = 'unknown', '发送结果不确定，请核验钉钉后处理；不会自动重发', ''
-            with self.connect() as c:
-                c.execute('UPDATE outbox SET state=?,receipt=?,error=?,updated_at=? WHERE id=?', (state, receipt, error, now(), key))
+            self.send_one(key, day, channel, target, body, job_id, credentials, value['robot_code'], retry_failed=retry_failed)
         return {'state': 'checked', 'channels': self.status(day), 'note': 'accepted表示平台接受，不等于已读；unknown/sending禁止自动重发'}
+
+    def send_one(self, key, day, channel, target, body, job_id, credentials, robot_code, *, retry_failed=False):
+        client = self.client or RobotClient(credentials, robot_code)
+        with self.connect() as c:
+            c.execute('BEGIN IMMEDIATE')
+            c.execute('INSERT OR IGNORE INTO outbox VALUES(?,?,?,?,?,?,?,0,?,?,?)',
+                      (key, day, channel, target, body, job_id, 'pending', now(), '', ''))
+            row = c.execute('SELECT * FROM outbox WHERE id=?', (key,)).fetchone()
+            if row['state'] != 'pending' and not (retry_failed and row['state'] == 'rejected'):
+                return
+            # 首次快照和目标固定；重试不能替换消息正文。
+            try:
+                client.prepare()
+            except Rejected:
+                c.execute("UPDATE outbox SET state='rejected',error=?,updated_at=? WHERE id=?",
+                          ('应用令牌未取得，尚未发送', now(), key))
+                return
+            c.execute("UPDATE outbox SET state='sending',attempts=attempts+1,updated_at=?,error='' WHERE id=?", (now(), key))
+        try:
+            receipt = client.send(channel, target, row['body'])
+            state, error = 'accepted', ''
+        except Rejected as exc:
+            state, error, receipt = 'rejected', str(exc), ''
+        except Exception:
+            state, error, receipt = 'unknown', '发送结果不确定，请核验钉钉后处理；不会自动重发', ''
+        with self.connect() as c:
+            c.execute('UPDATE outbox SET state=?,receipt=?,error=?,updated_at=? WHERE id=?', (state, receipt, error, now(), key))
 
 
 def completed(store, snapshot, job_id):

@@ -263,6 +263,25 @@ class Handler(BaseHTTPRequestHandler):
             if user["auth_type"] == "api":
                 return self.json({"error": "请在网页登录后管理令牌"}, 403)
             return self.json({"tokens": self.server.store.api_tokens(user["username"])})
+        if path == '/api/notification-report':
+            from app.notification_cards import load_report
+            from app.reports import render_report_brief_html
+            from app.pdf_export import render_report_pdf
+            try:
+                report = load_report(self.server.store, parse_qs(parsed.query).get('id', [''])[0])
+                body = render_report_pdf(render_report_brief_html(report), ROOT)
+            except ValueError as error:
+                return self.json({'error': str(error)}, 404)
+            except RuntimeError as error:
+                return self.json({'error': str(error)}, 503)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/pdf')
+            self.send_header('Content-Disposition', 'attachment; filename="production_daily.pdf"')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            return self.wfile.write(body)
         if path in {"/api/reports", "/api/v1/reports"}:
             try:
                 from app.reports import build_report, render_report_csv, render_report_html, render_report_brief_html

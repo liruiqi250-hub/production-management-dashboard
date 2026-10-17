@@ -1,4 +1,4 @@
-# 钉钉日报推送 V0.3.20
+# 钉钉日报推送 V0.3.21
 
 已确认业务范围：钉钉“办公群”收到生产与售后简明日报及看板链接；曾悦本人收到重点、逾期和需协调事项专报。每天15:30启动的既有集中整理任务成功归档后自动推送，目标16:30前完成。周末照常运行；三天优先计时继续沿用工厂规则，仅扣已核验放假日期。
 
@@ -48,3 +48,13 @@ vendor/python/python.exe -X utf8 -B -m app.dingtalk_notifications --retry-failed
 分别核验机器人配置已发布、消息权限已启用、办公群与曾悦身份、API接受、实际收到及链接打开。首次部署不自动发送旧日报。次日15:30任务是否自动启动、16:30前是否完成及消息是否实际到达要分别记录；办公室关机、离线或采集失败时不能保证准点。
 
 官方协议依据：[钉钉企业应用机器人](https://open.dingtalk.com/document/orgapp/the-creation-and-installation-of-the-application-robot-in-the)、[官方机器人SDK请求与响应](https://github.com/alibabacloud-go/dingtalk/blob/master/robot_1_0/client.go)。使用固定 `groupMessages/send` 与 `oToMessages/batchSend` 接口，不使用个人身份模拟发消息或已退役的群Webhook回复地址。
+
+## 卡片、PDF与本人异常提醒
+
+V0.3.21使用官方sampleActionCard2模板：摘要、打开看板、下载日报PDF。报告发送时冻结在本机private/notifications/reports；PDF按钮经原登录页进入有账号鉴权的下载接口，不公开业务文件，不在链接中放令牌。正文少于500字，详情和证据在看板；预览明确资料截至日期，不冒称今天整理成功。
+
+本机notifications.json可增加capture_operator_route=true、operator_alerts_enabled=true，只保存原绑定liruiqi本人的消息路由；账号停用或绑定变化后拒绝发送。`vendor/python/python.exe -X utf8 -B -m app.notification_cards --preview-to-me`仅向李睿琪发送办公群/曾悦两种卡片预览，各一次。本人确认样式后才设置presentation为card及cards_approved=true；未确认时原每日文字推送保留。
+
+15:30后整理失败或partial由后台即时提醒本人，不附原文、错误详情或凭据。`scripts/install_notification_check.ps1`为维护电脑安装每日16:50的pythonw静默检查任务，独立于Codex窗口；若没有当天15:30后completed记录，覆盖没启动、仍运行和中断，提醒本人。即时失败和截止提醒共用每日防重键；平台接受不等于已读，结果不明不自动重发。17:00后补跑明确延迟；电脑关机、未登录、断网时不能保证17:00前送达。普通只读同事不安装该任务。
+
+`vendor/python/python.exe -X utf8 -B -m app.notification_cards --check-deadline`可手动检查，16:50前不发截止提醒。日常收件范围仍为办公群及曾悦，liruiqi只收预览及异常；原事项权限不变。

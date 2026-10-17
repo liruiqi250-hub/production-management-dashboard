@@ -459,6 +459,8 @@ def run_job(root, job_id):
     except Exception as exc:
         message = str(exc) if isinstance(exc, ValueError) else "后台执行异常，请查看本机任务日志"
         stage("partial" if imported else "failed", message + ("；数据已导入，报表归档待重试" if imported else "；上次正式台账保留"), finished_at=now())
+        from app.notification_cards import notify_failure
+        notify_failure(Store(root), Jobs(root).status())
         return 1
     return 0
 
