@@ -33,6 +33,8 @@ class DashboardServer(ThreadingHTTPServer):
         self.after_sales = AfterSales(store)
         self.production = Production(store)
         self.jobs = Jobs(store.workspace)
+        from app.dingtalk_login import DingTalkLogin
+        self.dingtalk = DingTalkLogin(store)
         self.lan_ip = lan_ip
         self.network = ipaddress.ip_network(lan_ip + "/24", strict=False)
         self.attempts = {}
@@ -59,10 +61,29 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.common_headers("application/json; charset=utf-8")
         for key, value in (headers or {}).items():
-            self.send_header(key, value)
+            for item in value if isinstance(value, list) else [value]:
+                self.send_header(key, item)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def cookie_value(self, name):
+        try:
+            cookies = SimpleCookie()
+            cookies.load(self.headers.get("Cookie", ""))
+            return cookies[name].value if name in cookies else ""
+        except Exception:
+            return ""
+
+    def auth_redirect(self, location, cookies=()):
+        self.send_response(303)
+        self.common_headers("text/plain; charset=utf-8")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Location", location)
+        for cookie in cookies:
+            self.send_header("Set-Cookie", cookie)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def access(self):
         try:
@@ -127,6 +148,43 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/health":
             return self.json({"status": "ready", "version": __version__,
                               "workspace_id": getattr(self.server, "workspace_id", "")})
+        if path == "/api/auth/dingtalk":
+            user = self.identity()
+            return self.json(self.server.dingtalk.status(
+                self.cookie_value("dino_ding_binding"), user["username"] if user else None))
+        if path == "/auth/dingtalk/start":
+            from app.dingtalk_login import LoginError
+            ding = self.server.dingtalk
+            if not ding.enabled:
+                return self.auth_redirect("/?dingtalk=disabled")
+            if self.headers.get("Host") != urlparse(ding.origin).netloc:
+                return self.auth_redirect(ding.origin + path)
+            try:
+                ding.cancel_pending(self.cookie_value("dino_ding_binding"))
+                target, cookie = ding.start()
+                return self.auth_redirect(target, [f"dino_ding_oauth={cookie}; Path=/auth/dingtalk; HttpOnly; SameSite=Lax; Max-Age=600",
+                                                  "dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"])
+            except LoginError:
+                return self.auth_redirect("/?dingtalk=failed")
+        if path == "/auth/dingtalk/callback":
+            from app.dingtalk_login import LoginError
+            cookies = ["dino_ding_oauth=; Path=/auth/dingtalk; HttpOnly; SameSite=Lax; Max-Age=0"]
+            try:
+                query = parse_qs(parsed.query, max_num_fields=12)
+                if any(len(query.get(key, [])) != 1 for key in ("state", "authCode")) or "error" in query:
+                    raise LoginError("授权未完成")
+                result = self.server.dingtalk.callback(query["state"][0], self.cookie_value("dino_ding_oauth"), query["authCode"][0])
+                if "pending" in result:
+                    cookies.append(f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
+                    cookies.append(f"dino_ding_binding={result['pending']}; Path=/; HttpOnly; SameSite=Strict; Max-Age=600")
+                    return self.auth_redirect("/?dingtalk=bind", cookies)
+                token = result["session"]["token"]
+                cookies.extend([f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200",
+                                "dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"])
+                return self.auth_redirect("/?dingtalk=ok", cookies)
+            except (LoginError, ValueError) as error:
+                self.server.dingtalk.record_failure(error)
+                return self.auth_redirect("/?dingtalk=failed", cookies)
         if path in {"/", "/index.html", "/app.js", "/production.js", "/styles.css"}:
             name = "index.html" if path == "/" else path.lstrip("/")
             target = ROOT / "web" / name
@@ -231,13 +289,28 @@ class Handler(BaseHTTPRequestHandler):
                 result = self.server.store.login(username, password)
                 if not result:
                     return self.json({"error": "账号或密码不正确"}, 401)
+                pending = self.cookie_value("dino_ding_binding")
+                try:
+                    if data.get("bind_dingtalk") is True and not result["user"]["must_change_password"]:
+                        self.server.dingtalk.bind_pending(pending, result["token"])
+                    elif data.get("bind_dingtalk") is not True:
+                        self.server.dingtalk.cancel_pending(pending)
+                except ValueError:
+                    self.server.store.logout(result["token"])
+                    raise
                 with self.server.attempt_lock:
                     self.server.attempts.pop(ip, None)
                 token = result.pop("token")
-                return self.json(result, headers={"Set-Cookie": f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200"})
+                cookies = [f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200"]
+                if pending and not result["user"]["must_change_password"]:
+                    cookies.append("dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
+                return self.json(result, headers={"Set-Cookie": cookies})
             user = self.require(write=True, allow_password_change=method == "POST" and path in {"/api/password", "/api/logout"})
             if not user:
                 return
+            if path == "/api/auth/dingtalk/unbind" and method == "POST":
+                self.server.dingtalk.unbind(user["username"])
+                return self.json({"ok": True}, headers={"Set-Cookie": f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"})
             if path == "/api/jobs" and method == "POST":
                 if user["role"] != "admin":
                     return self.json({"error": "仅李睿琪可启动整理，其他账号可查看运行结果"}, 403)

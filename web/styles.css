@@ -355,3 +355,12 @@ dialog::backdrop { background: rgba(16,26,43,.65); }
 
 .table-wrap { padding: 8px; }
 @media(max-width:780px){.userbar{width:100%;margin-left:0;flex-wrap:nowrap}#user-name{flex:1;text-align:left}.userbar button{min-height:44px}.detail dl{grid-template-columns:84px minmax(0,1fr)}}
+
+.login-alternative{display:grid;gap:8px;padding-top:16px;border-top:1px solid var(--line)}
+.login-alternative p{margin:0}
+.binding-notice p{margin:0 0 8px}
+.binding-notice .checkbox{align-items:flex-start;line-height:1.6}
+#dingtalk-account{margin-bottom:20px}
+
+.login-card .checkbox{min-height:44px}
+.login-card .checkbox input[type="checkbox"]{flex:0 0 18px;width:18px;height:18px;min-height:18px;padding:0;margin:3px 0 0;align-self:flex-start}
