@@ -33,8 +33,10 @@ class DashboardServer(ThreadingHTTPServer):
         self.after_sales = AfterSales(store)
         self.production = Production(store)
         self.jobs = Jobs(store.workspace)
+        from app.remote_access import RemoteGateway
+        self.gateway = RemoteGateway(store)
         from app.dingtalk_login import DingTalkLogin
-        self.dingtalk = DingTalkLogin(store)
+        self.dingtalk = DingTalkLogin(store, public_origin=self.gateway.origin)
         self.lan_ip = lan_ip
         self.network = ipaddress.ip_network(lan_ip + "/24", strict=False)
         self.attempts = {}
@@ -55,6 +57,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")
+        if self.gateway_origin():
+            self.send_header("Strict-Transport-Security", "max-age=15552000")
+
+    def gateway_origin(self):
+        gateway = getattr(self.server, 'gateway', None)
+        return gateway.verify(self.client_address[0], self.headers) if gateway else None
+
+    def cookie_header(self, value):
+        return value + "; Secure" if self.gateway_origin() else value
 
     def json(self, data, status=200, headers=None):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -62,7 +73,7 @@ class Handler(BaseHTTPRequestHandler):
         self.common_headers("application/json; charset=utf-8")
         for key, value in (headers or {}).items():
             for item in value if isinstance(value, list) else [value]:
-                self.send_header(key, item)
+                self.send_header(key, self.cookie_header(item) if key.lower() == "set-cookie" else item)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -81,7 +92,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Location", location)
         for cookie in cookies:
-            self.send_header("Set-Cookie", cookie)
+            self.send_header("Set-Cookie", self.cookie_header(cookie))
         self.send_header("Content-Length", "0")
         self.end_headers()
 
@@ -90,6 +101,9 @@ class Handler(BaseHTTPRequestHandler):
             client = ipaddress.ip_address(self.client_address[0])
         except ValueError:
             return False
+        if self.headers.get('X-Dino-Gateway-Key') or self.headers.get('X-Dino-Public-Origin'):
+            if not self.gateway_origin():
+                return False
         return (client.is_loopback or client in self.server.network) and self.headers.get("Host", "") in self.server.allowed_hosts
 
     def identity(self):
@@ -127,6 +141,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def valid_origin(self):
         origin = self.headers.get("Origin")
+        remote = self.gateway_origin()
+        if remote:
+            return origin == remote
         return not origin or origin in {"http://" + h for h in self.server.allowed_hosts}
 
     def body(self):
@@ -150,8 +167,10 @@ class Handler(BaseHTTPRequestHandler):
                               "workspace_id": getattr(self.server, "workspace_id", "")})
         if path == "/api/auth/dingtalk":
             user = self.identity()
-            return self.json(self.server.dingtalk.status(
-                self.cookie_value("dino_ding_binding"), user["username"] if user else None))
+            info = self.server.dingtalk.status(self.cookie_value("dino_ding_binding"), user["username"] if user else None)
+            if info['enabled'] and self.gateway_origin():
+                info['login_url'] = self.gateway_origin() + '/auth/dingtalk/start'
+            return self.json(info)
         if path == "/api/auth/dingtalk/workbench/start":
             from app.dingtalk_login import LoginError
             try:
@@ -166,11 +185,13 @@ class Handler(BaseHTTPRequestHandler):
             ding = self.server.dingtalk
             if not ding.enabled:
                 return self.auth_redirect("/?dingtalk=disabled")
-            if self.headers.get("Host") != urlparse(ding.origin).netloc:
-                return self.auth_redirect(ding.origin + path)
+            target_origin = self.gateway_origin() or ding.origin
+            actual_origin = self.gateway_origin() or 'http://' + self.headers.get('Host','')
+            if actual_origin != target_origin:
+                return self.auth_redirect(target_origin + path)
             try:
                 ding.cancel_pending(self.cookie_value("dino_ding_binding"))
-                target, cookie = ding.start()
+                target, cookie = ding.start(public=bool(self.gateway_origin()))
                 return self.auth_redirect(target, [f"dino_ding_oauth={cookie}; Path=/auth/dingtalk; HttpOnly; SameSite=Lax; Max-Age=600",
                                                   "dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"])
             except LoginError:
@@ -221,7 +242,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/me":
             public_user = {k: v for k, v in user.items() if k not in {"csrf", "auth_type"}}
             public_user['permissions'] = permission_profile(user, self.server.store.workspace)
-            return self.json({"user": public_user, "csrf": user["csrf"], "version": __version__, "lan_url": f"http://{self.server.lan_ip}:{self.server.server_port}"})
+            return self.json({"user": public_user, "csrf": user["csrf"], "version": __version__, "lan_url": self.gateway_origin() or f"http://{self.server.lan_ip}:{self.server.server_port}"})
         if path in {"/api/dashboard", "/api/v1/overview", "/api/v1/items"}:
             snapshot = self.server.store.snapshot()
             snapshot["after_sales"] = self.server.after_sales.snapshot()
@@ -297,7 +318,8 @@ class Handler(BaseHTTPRequestHandler):
             data = self.body()
             if path == "/api/auth/dingtalk/workbench/login" and method == "POST":
                 # 匿名身份交换也必须严格同源；UA和前端参数不能赋权。
-                if self.headers.get("Origin") not in {"http://" + h for h in self.server.allowed_hosts}:
+                expected_origins = {self.gateway_origin()} if self.gateway_origin() else {"http://" + h for h in self.server.allowed_hosts}
+                if self.headers.get("Origin") not in expected_origins:
                     return self.json({"error": "登录请求来源不被允许"}, 403)
                 cookies = ["dino_ding_workbench=; Path=/api/auth/dingtalk/workbench; HttpOnly; SameSite=Strict; Max-Age=0"]
                 from app.dingtalk_login import LoginError

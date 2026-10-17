@@ -1,0 +1,12 @@
+{
+  "id": "cloudflared",
+  "version": "2026.10.1",
+  "url": "https://github.com/cloudflare/cloudflared/releases/download/2026.10.1/cloudflared-windows-amd64.exe",
+  "filename": "cloudflared-windows-amd64.exe",
+  "bytes": 55325120,
+  "sha256": "4d2490e74082c5d48dbfedaf92576fa5bd1702379ab88eb7faa0cfbe8dc891b6",
+  "license": "Apache-2.0",
+  "license_path": "dependencies/cloudflared/LICENSE.txt",
+  "license_sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+  "source": "https://github.com/cloudflare/cloudflared/tree/2026.10.1"
+}

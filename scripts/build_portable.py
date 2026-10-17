@@ -263,6 +263,12 @@ def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = 
             try:
                 build_wechat_runtime(root, cache / "wechat", offline=offline, source=source)
                 build_media_runtime(root, cache, offline=offline, source=source)
+                if 'dependencies/cloudflared.lock.json' in files:
+                    try:
+                        from scripts.build_remote_runtime import build_remote_runtime
+                    except ModuleNotFoundError:
+                        from build_remote_runtime import build_remote_runtime
+                    build_remote_runtime(root,cache/'cloudflared',source=source,offline=offline)
                 refresh_installation_records(root)
             except RuntimeError as exc:
                 raise BundleError("微信或媒体组件构建失败，请检查依赖锁、许可及离线缓存") from exc

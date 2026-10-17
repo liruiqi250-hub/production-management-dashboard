@@ -33,11 +33,12 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class DingTalkLogin:
-    def __init__(self, store):
+    def __init__(self, store, *, public_origin=None):
         self.store = store
         self.config = None
         self._app_token = None
         self._token_lock = threading.Lock()
+        self.public_origin = public_origin
         config_path = store.private / "dingtalk" / (store.path.stem + ".json")
         if not config_path.exists():
             return
@@ -95,7 +96,7 @@ class DingTalkLogin:
                     (self.config["corp_id"], username)).fetchone())
         return result
 
-    def start(self):
+    def start(self, *, public=False):
         if not self.enabled:
             raise LoginError("钉钉登录尚未配置，请使用原账号登录")
         state, cookie = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
@@ -107,7 +108,7 @@ class DingTalkLogin:
                 raise LoginError("登录请求较多，请稍后重试")
             conn.execute("INSERT INTO dingtalk_states VALUES(?,?,?)", (digest(state), digest(cookie), expires))
         return "https://login.dingtalk.com/oauth2/auth?" + urlencode({
-            "client_id": self.config["client_id"], "redirect_uri": self.config["redirect_uri"],
+            "client_id": self.config["client_id"], "redirect_uri": (self.public_origin + '/auth/dingtalk/callback') if public and self.public_origin else self.config["redirect_uri"],
             "response_type": "code", "state": state, "prompt": "consent", "scope": SCOPE,
             "corpId": self.config["corp_id"],
         }), cookie

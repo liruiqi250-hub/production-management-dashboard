@@ -1,4 +1,4 @@
-# 钉钉登录 V0.3.18
+# 钉钉登录 V0.3.19
 
 本功能支持普通浏览器OAuth授权登录及钉钉工作台内自动登录。普通浏览器仍需点击使用钉钉登录；钉钉内打开时自动识别当前身份，沿用既有绑定进入本人事项。真实端内桥接须在实际钉钉客户端验收，不能以模拟结果代替。现有12小时看板会话不延长，平台身份接口所需联网仍须可用，看板本身继续仅在内网服务。
 
@@ -30,7 +30,7 @@
 
 接口依据：[钉钉官方授权码教程](https://open-dingtalk.github.io/developerpedia/docs/develop/permission/token/browser/get_user_app_token_browser/)、[官方SDK授权码接口](https://github.com/alibabacloud-go/dingtalk/blob/master/oauth2_1_0/client.go)、[官方SDK个人身份接口](https://github.com/alibabacloud-go/dingtalk/blob/master/contact_1_0/client.go)。
 
-## 工作台端内自动登录 V0.3.18
+## 工作台端内自动登录 V0.3.19
 
 - 在公司钉钉工作台点击应用，页面先显示身份识别状态；默认根首页无需更换地址。只在钉钉UA中自动运行桥接，普通浏览器不加载SDK或自动跳转。UA本身不构成身份凭据。
 - 固定企业应用token：POST `/v1.0/oauth2/{corpId}/token`；微应用免登码：`runtime.permission.requestAuthCode`；用户身份：POST `/topapi/v2/user/getuserinfo`。只取unionid，与原OAuth绑定共用同一企业和主体哈希，不额外读取人员详情、手机号或部门。不混用OAuth授权码与微应用免登码。
