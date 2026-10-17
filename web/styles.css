@@ -6,7 +6,7 @@
 .user-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.user-row{flex-wrap:wrap}
 
 @media(prefers-color-scheme:dark){:root{--bg:#151a23;--panel:#202734;--ink:#ecf1f8;--muted:#b5c1d3;--line:#3a465b;--brand:#b4d3f3;--brandbg:#2d405a;--warn:#ffd18a;--warnbg:#49391f;--green:#9de0be;--greenbg:#204438;--red:#ffb5b5;--redbg:#4b2a31}}
-.login-screen{min-height:100vh;min-height:100svh}.login-card input{-webkit-appearance:none;appearance:none}.login-card button{-webkit-appearance:none;appearance:none}
+.login-screen{min-height:100vh;min-height:100svh}.login-card input:not([type="checkbox"]):not([type="radio"]){-webkit-appearance:none;appearance:none}.login-card button{-webkit-appearance:none;appearance:none}
 .item-summary{line-height:1.65;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;max-height:3.3em}.item-hint{font-size:12px;color:var(--muted);margin-top:6px;text-align:right}.full-summary{white-space:pre-line;font-size:13px;overflow-wrap:anywhere}
 .export-status{flex-basis:100%;text-align:right;overflow-wrap:anywhere}
 .run-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.run-bar>div{min-width:0;overflow-wrap:anywhere}.urgent-tag{display:inline-block;color:var(--red);background:var(--redbg);border-radius:5px;padding:2px 7px;font-size:12px;margin-left:8px}.priority-item{margin-top:10px}.after-case summary{overflow-wrap:anywhere}.after-case summary .badge{margin-left:8px}.after-case dd{margin:4px 0 12px;overflow-wrap:anywhere}.after-case summary p{margin:5px 0}.after-case[open]{border-color:var(--brand)}
@@ -362,5 +362,5 @@ dialog::backdrop { background: rgba(16,26,43,.65); }
 .binding-notice .checkbox{align-items:flex-start;line-height:1.6}
 #dingtalk-account{margin-bottom:20px}
 
-.login-card .checkbox{min-height:44px}
-.login-card .checkbox input[type="checkbox"]{flex:0 0 18px;width:18px;height:18px;min-height:18px;padding:0;margin:3px 0 0;align-self:flex-start}
+.login-card .checkbox{min-height:44px;cursor:pointer}
+.login-card .checkbox input[type="checkbox"]{-webkit-appearance:auto;appearance:auto;accent-color:var(--brand);cursor:pointer;flex:0 0 18px;width:18px;height:18px;min-height:18px;padding:0;margin:3px 0 0;align-self:flex-start}
