@@ -205,8 +205,13 @@ class Notifications:
         if not path.is_file():
             return None
         value = json.loads(path.read_text('utf-8-sig'))
-        if value.get('enabled') is not True:
+        if value.get('enabled') is not True or value.get('push_paused') is True:
             return None
+        from app.notification_transport import independent_config
+        from app.remote_access import RemoteGateway
+        independent = independent_config(self.store, value, RemoteGateway(self.store).origin)
+        if independent is not None:
+            return independent
         from app.dingtalk_login import DingTalkLogin
         from app.remote_access import RemoteGateway
         ding, gateway = DingTalkLogin(self.store), RemoteGateway(self.store)
@@ -256,6 +261,8 @@ class Notifications:
                 messages = {k: '【延迟更新】\n' + v for k, v in messages.items()}
         else:
             messages = {k: '【推送连通测试】生产管理看板\n此消息仅验证固定接收通道，不是今日生产日报。\n打开看板：' + origin + '/' for k in ('group', 'leader')}
+        messages = {key: text for key, text in messages.items() if key in value.get('channels', ['group', 'leader'])}
+        card_texts = dict(messages)
         if not test and value.get('presentation') == 'card' and value.get('cards_approved') is True:
             from app.notification_cards import freeze_report, card_body
             report_id = freeze_report(self.store, snapshot, day, '日报')
@@ -263,8 +270,18 @@ class Notifications:
         for channel, body in messages.items():
             target = value['group']['open_conversation_id'] if channel == 'group' else value['leader']['user_id']
             key = hashlib.sha256(f'{day}|{channel}|{target}|{"test" if test else "daily"}'.encode()).hexdigest()
+            if (not test and value.get('images_approved') is True and body.startswith('{"notification_card":')):
+                with self.connect() as c:
+                    existing=c.execute('SELECT state FROM outbox WHERE id=?',(key,)).fetchone()
+                if existing and existing['state'] in {'accepted','unknown','sending'}:
+                    continue
+                from app.notification_image import add_image
+                body=add_image(self.store,self.client or RobotClient(credentials,value['robot_code']),card_texts[channel],body)
             self.send_one(key, day, channel, target, body, job_id, credentials, value['robot_code'], retry_failed=retry_failed)
-        return {'state': 'checked', 'channels': self.status(day), 'note': 'accepted表示平台接受，不等于已读；unknown/sending禁止自动重发'}
+        return {'state': 'checked', 'channels': self.status(day),
+                'enabled_channels': value.get('channels', ['group', 'leader']),
+                'disabled_channels': [key for key in ['group', 'leader'] if key not in value.get('channels', ['group', 'leader'])],
+                'note': 'accepted表示平台接受，不等于已读；unknown/sending禁止自动重发'}
 
     def send_one(self, key, day, channel, target, body, job_id, credentials, robot_code, *, retry_failed=False):
         client = self.client or RobotClient(credentials, robot_code)

@@ -1,4 +1,14 @@
-# 钉钉日报推送 V0.3.21
+# 钉钉日报推送 V0.3.22
+
+## 独立通知应用与部分通道恢复
+
+V0.3.22可在管理员实际核验后将通知应用与原工作台登录分开。`notifications.json`指定`sender_profile: "independent"`，凭据和已核验的李睿琪、曾悦个人路由固定存放于本机`private/dingtalk/notification_sender.json`，不通过网页编辑，不随Git和便携包分发。原登录配置和身份绑定不改动。
+
+独立通知文件使用schema=1、verified=true，credentials包含client_id/client_secret/corp_id；routes仅允许liruiqi、zengyue两项，每项要求相符username、中文实名、corp_id、user_id、verified=true及verified_at。两人必须为不同身份且本地账号仍有效。设置前核对组织身份、发布的精确人员范围和实际发送回执；不能跨企业复用userid或假定同名群相同。
+
+`group.enabled=false`时不向群发消息，保留原群资料便于核对；`leader.enabled=true`时仅向已核验曾悦发送。群通道启用必须另行核验群归属与通知企业一致，且name为办公群、verified=true并提供有效会话标识。用户未批准变更时不得搬迁群、创建替代群或修改成员。返回的enabled_channels/disabled_channels是实际通道范围，不能将个人专报成功写成群发也成功。
+
+`operator_alerts_enabled=true`允许使用已核验独立本人路由发送异常提醒，仍按15:30后失败即时提醒与16:50兜底、同日防重处理。`images_approved=false`时不上传图片。既有默认同企业登录绑定模式继续沿用下述校验；新电脑默认不启用任何通知。
 
 已确认业务范围：钉钉“办公群”收到生产与售后简明日报及看板链接；曾悦本人收到重点、逾期和需协调事项专报。每天15:30启动的既有集中整理任务成功归档后自动推送，目标16:30前完成。周末照常运行；三天优先计时继续沿用工厂规则，仅扣已核验放假日期。
 

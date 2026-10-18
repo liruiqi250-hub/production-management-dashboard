@@ -265,7 +265,7 @@ async function workbenchLogin(){
   if(!start.ok)throw new Error('钉钉登录暂不可用，请使用原账号登录。');
   const challenge=await start.json();
   if(!window.DinoDingTalk)await new Promise((resolve,reject)=>{
-   const script=document.createElement('script');script.src='/vendor/dingtalk-workbench.js?v=0.3.21';
+   const script=document.createElement('script');script.src='/vendor/dingtalk-workbench.js?v=0.3.22';
    let settled=false;const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);error?reject(error):resolve();};
    const timer=setTimeout(()=>finish(new Error('钉钉组件加载超时，请重新打开工作台应用或使用原账号登录。')),8000);
    script.onload=()=>finish();script.onerror=()=>finish(new Error('钉钉组件未能加载，请使用原账号登录。'));document.head.append(script);

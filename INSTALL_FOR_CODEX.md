@@ -1,12 +1,12 @@
-# 接收电脑 Codex 安装说明 V0.3.21
+# 接收电脑 Codex 安装说明 V0.3.22
 
-V0.3.21支持本机管理员明确持续授权后的自动阶段复核。已有部署保留private/context_review_policy.json及沟通资料，更新不重置授权和人工结果；新电脑没有授权文件时默认只生成候选，不能擅自用旧电脑或他人名义启用。策略结构与验收见docs/communication-profile.md。后台每轮保存stage_review_plans.json及stage_review_result.json，须结合真实台账验收。
+V0.3.22支持本机管理员明确持续授权后的自动阶段复核。已有部署保留private/context_review_policy.json及沟通资料，更新不重置授权和人工结果；新电脑没有授权文件时默认只生成候选，不能擅自用旧电脑或他人名义启用。策略结构与验收见docs/communication-profile.md。后台每轮保存stage_review_plans.json及stage_review_result.json，须结合真实台账验收。
 
 如本机已有 `private/communication_profiles_V1.0.0.json`，更新时保留。每轮整理会重新校验并读取，任务目录中的 `communication_profile_receipt.json` 可核验实际加载的版本、SHA和范围。该文件包含本机私有人员沟通案例，不包含在GitHub源码和运行包内；新电脑默认没有，不代表安装缺件。正式迁移需在用户授权下单独本机复制并重新核对办公室映射，详见 `docs/communication-profile.md`。
 
 ## 先按用户目的选择系统
 
-- 恐龙生产管理：下载 `production-dashboard-V0.3.21-full-windows-x64.zip`，运行 `启动生产看板_V0.3.21.cmd`，默认8769端口，按下方恐龙流程验收。
+- 恐龙生产管理：下载 `production-dashboard-V0.3.22-full-windows-x64.zip`，运行 `启动生产看板_V0.3.22.cmd`，默认8769端口，按下方恐龙流程验收。
 - 彩灯生产管理：下载同版本 `lantern-dashboard-...zip`，按彩灯流程部署，默认8770端口。只部署用户需要的一套，同事仅查看或读取API时不用部署采集。
 - 两套账号、数据库、群清单和邮箱来源互相独立。不要把恐龙指定群绑定带入彩灯，也不要用彩灯人员配置覆盖恐龙办公室名单。
 
@@ -18,13 +18,13 @@ V0.3.21支持本机管理员明确持续授权后的自动阶段复核。已有�
 
 如果用户只是查看办公室看板或让自己的Codex总结生产数据：使用办公室当前内网网址登录，并由本人生成自己的只读Codex令牌，按README的API接口读取。无需在每位同事电脑上建立空台账或重复采集微信；令牌只存当地私有位置，不发给别人或上传GitHub。
 
-如果本机作为看板服务器或迁移接替办公室电脑：下载私有仓库最新Release的`production-dashboard-V0.3.21-full-windows-x64.zip`及同名`.sha256`。GitHub自带的Source code ZIP不包含运行组件。核验下载包SHA256后解压至本机可写的中文/空格目录也可使用；不要解压到微信数据目录。对应Release的第三方源码附件用于许可与重建，正常运行无需解压该源码附件。
+如果本机作为看板服务器或迁移接替办公室电脑：下载私有仓库最新Release的`production-dashboard-V0.3.22-full-windows-x64.zip`及同名`.sha256`。GitHub自带的Source code ZIP不包含运行组件。核验下载包SHA256后解压至本机可写的中文/空格目录也可使用；不要解压到微信数据目录。对应Release的第三方源码附件用于许可与重建，正常运行无需解压该源码附件。
 
 ## 安装与启动
 
 1. 确认Windows 10/11 x64、磁盘空间及包内SHA256SUMS.json。运行包内`vendor/python/python.exe -X utf8 scripts/doctor_installation.py --json --require-wechat`，读取JSON和退出码。首次缺少本机微信绑定是“需配置”，不能写成组件损坏或采集已成功。
-2. 运行`检查完整安装.cmd`，再运行`启动生产看板_V0.3.21.cmd`。也可通过`powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File scripts/start_dashboard_V0.2.0.ps1 -NoBrowser`启动。若Windows标记下载文件为阻止，核验来源与哈希后只解除此解压目录内文件的阻止，不更改全局执行策略。
-3. 服务健康检查应返回V0.3.21且workspace_id与本目录对应；核对启动器显示的内网地址，不沿用原电脑固定IP。新副本为空台账，初始账号文件由本机首次启动生成，首次登录后本人改密。更新已有部署必须先备份本机private及业务材料，不重置用户密码、不覆盖人工结果。
+2. 运行`检查完整安装.cmd`，再运行`启动生产看板_V0.3.22.cmd`。也可通过`powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File scripts/start_dashboard_V0.2.0.ps1 -NoBrowser`启动。若Windows标记下载文件为阻止，核验来源与哈希后只解除此解压目录内文件的阻止，不更改全局执行策略。
+3. 服务健康检查应返回V0.3.22且workspace_id与本目录对应；核对启动器显示的内网地址，不沿用原电脑固定IP。新副本为空台账，初始账号文件由本机首次启动生成，首次登录后本人改密。更新已有部署必须先备份本机private及业务材料，不重置用户密码、不覆盖人工结果。
 4. 实际登录、手机布局、日报及周报下载分别验收。其它设备用当前办公室内网地址连接；若确因防火墙被拦，确认当前受信任网络和具体端口后仅配置该端口规则，不关闭防火墙、不开放公网。
 
 ## 配置本机微信采集
@@ -60,14 +60,14 @@ $probeOutput = Join-Path (Get-Location) ('acquisition/codex_probe_' + (Get-Date 
 
 安装结束请分别报告：包和组件校验、服务与报表、本机微信绑定、指定群真实采集、分析导入、每日任务设置。未完成的项如实注明原因，不合并成笼统“全部安装成功”。任何凭据、私有数据及真实账号标识均不写入提交、截图或公共日志。
 
-V0.3.21的办公室跟进人由办公室成员主动承接消息或明确交办推断，并保留owner_basis来源理由。自动推定待确认，人工指定与完成结果保留；owner不是实际执行人。详情可单独确认负责人，同事Codex读取时必须保留推定/人工确认区别。
+V0.3.22的办公室跟进人由办公室成员主动承接消息或明确交办推断，并保留owner_basis来源理由。自动推定待确认，人工指定与完成结果保留；owner不是实际执行人。详情可单独确认负责人，同事Codex读取时必须保留推定/人工确认区别。
 
-V0.3.21纠正规则：owner只允许办公室名单内人员。业务员、客户和其他发言人只是沟通来源；从办公室主动承接及明确交办判断，没有依据留空待分派。昵称须精确核对，不能由包含姓名的字符串猜身份。默认办公室名单为李睿琪、张英、银小芹、王星、郭逸、张利伟；本机可在private/office_staff.json配置names列表和aliases对象，私有配置不随包迁移。
+V0.3.22纠正规则：owner只允许办公室名单内人员。业务员、客户和其他发言人只是沟通来源；从办公室主动承接及明确交办判断，没有依据留空待分派。昵称须精确核对，不能由包含姓名的字符串猜身份。默认办公室名单为李睿琪、张英、银小芹、王星、郭逸、张利伟；本机可在private/office_staff.json配置names列表和aliases对象，私有配置不随包迁移。
 
 
 ## 彩灯生产管理部署
 
-彩灯运行包请先读 `docs/lantern-start-here.txt`，再按 `docs/lantern-codex-deploy.md` 执行部署。使用 `启动彩灯看板_V0.3.21.cmd`，默认8770端口。江红为销售支持部主管及管理员，同时参与跟单；黄钰萌、田秀玲为跟单。账号、密码、数据库与原恐龙系统完全分开。
+彩灯运行包请先读 `docs/lantern-start-here.txt`，再按 `docs/lantern-codex-deploy.md` 执行部署。使用 `启动彩灯看板_V0.3.22.cmd`，默认8770端口。江红为销售支持部主管及管理员，同时参与跟单；黄钰萌、田秀玲为跟单。账号、密码、数据库与原恐龙系统完全分开。
 
 界面及通用功能直接复用恐龙看板，不另做实施资料页面。模板另行本机导入；微信和阿里企业邮箱只在部署或用户要求读取时，确认必要来源和本机授权。不得采用恐龙默认14群或售后3群清单，不把组件齐全等同真实业务接通。
 
@@ -87,15 +87,15 @@ V0.3.21纠正规则：owner只允许办公室名单内人员。业务员、客�
 格式：XLS/XLSX、DOCX、CSV/TXT、文字PDF、PNG/JPG/BMP/TIFF及扫描PDF。扫描件使用Windows内置OCR，现场Codex应验证本机OCR语言组件和真实样本；缺少组件时保留原件等待处理，不能称已识别。旧DOC请转DOCX/PDF，压缩包/附加邮件不自动打开。PDF最多100页，超过文字上限会明确说明覆盖不完整。
 新增待核对资料在private/lantern_inbox_files，记录及确认人保存于lantern.sqlite3；升级仍保留整个private。邮箱安全密码不进入模型输入，提取的附件文字可由Codex分析。
 
-V0.3.21权限：员工仅可修改自己跟进的生产/售后事项，不能改派；李睿琪与曾悦可处理所有事项。未分派由管理人员分派；单件进度按全部已关联事项归属检查，未关联或跨人记录由管理人员处理，关联变更由管理人员执行。GET仍可查看全部，Codex Bearer令牌保持只读。/api/me返回permissions（manage_all、office_name、can_write），用于界面展示；服务端保存时以数据库当前账号及负责人重新检查，不能靠页面筛选或伪造字段越权。
+V0.3.22权限：员工仅可修改自己跟进的生产/售后事项，不能改派；李睿琪与曾悦可处理所有事项。未分派由管理人员分派；单件进度按全部已关联事项归属检查，未关联或跨人记录由管理人员处理，关联变更由管理人员执行。GET仍可查看全部，Codex Bearer令牌保持只读。/api/me返回permissions（manage_all、office_name、can_write），用于界面展示；服务端保存时以数据库当前账号及负责人重新检查，不能靠页面筛选或伪造字段越权。
 
-V0.3.21静默自启验收：服务器部署完成后运行 `scripts/install_startup_V0.2.0.ps1`（彩灯端口用 `-Port 8770`），回读当前用户任务动作应为本目录 `vendor/python/pythonw.exe` 与 `scripts/ensure_dashboard_running.py`，含登录触发器和PT5M周期。检查任务退出码、健康接口版本/workspace_id、正常巡检PID不变，再核验本项目PID后模拟服务退出，验证任务可恢复。不要覆盖其他工作区同名任务、全局Startup注册表或他人服务。网页独立运行不等于微信/AI已完成采集；分别验收。无企业管理员配置时不要声称已启用钉钉登录或擅自延长现有会话。
+V0.3.22静默自启验收：服务器部署完成后运行 `scripts/install_startup_V0.2.0.ps1`（彩灯端口用 `-Port 8770`），回读当前用户任务动作应为本目录 `vendor/python/pythonw.exe` 与 `scripts/ensure_dashboard_running.py`，含登录触发器和PT5M周期。检查任务退出码、健康接口版本/workspace_id、正常巡检PID不变，再核验本项目PID后模拟服务退出，验证任务可恢复。不要覆盖其他工作区同名任务、全局Startup注册表或他人服务。网页独立运行不等于微信/AI已完成采集；分别验收。无企业管理员配置时不要声称已启用钉钉登录或擅自延长现有会话。
 
-V0.3.21钉钉登录按 `docs/dingtalk-login.md` 单独验收。私有企业凭据与身份绑定不迁移至运行包，不自动从其他部署复制。新电脑默认隐藏入口，原账号密码登录继续可用；回调必须指向当前可访问的固定内网地址，不擅自增加外网访问或穿透。首次扫码后由本人用当前账号密码明确绑定，管理账号不能按昵称批量赋权。
+V0.3.22钉钉登录按 `docs/dingtalk-login.md` 单独验收。私有企业凭据与身份绑定不迁移至运行包，不自动从其他部署复制。新电脑默认隐藏入口，原账号密码登录继续可用；回调必须指向当前可访问的固定内网地址，不擅自增加外网访问或穿透。首次扫码后由本人用当前账号密码明确绑定，管理账号不能按昵称批量赋权。
 
-V0.3.21 工作台端内自动登录及SDK随包说明见 `docs/dingtalk-login.md`。保留原企业密钥与绑定，不按昵称赋权、不重置密码。接收电脑不能把模拟桥接测试当成真实客户端验收。
+V0.3.22 工作台端内自动登录及SDK随包说明见 `docs/dingtalk-login.md`。保留原企业密钥与绑定，不按昵称赋权、不重置密码。接收电脑不能把模拟桥接测试当成真实客户端验收。
 
 
-钉钉日报推送 V0.3.21：接收范围固定为办公群与曾悦本人，安装包默认未配置、不会发送。请维护人员阅读 [推送配置与验收](docs/dingtalk-notifications.md)，配置与测试必须在本公司授权范围内完成；不复制原电脑private。
+钉钉日报推送 V0.3.22：接收范围固定为办公群与曾悦本人，安装包默认未配置、不会发送。请维护人员阅读 [推送配置与验收](docs/dingtalk-notifications.md)，配置与测试必须在本公司授权范围内完成；不复制原电脑private。
 
-V0.3.21通知维护：本维护电脑配置liruiqi本人原钉钉绑定路由后，执行scripts/install_notification_check.ps1，回读每日16:50、pythonw.exe动作及执行结果。普通只读同事不要安装采集和通知检查。卡片先用app.notification_cards --preview-to-me仅本人验收；确认后再启用正式卡片。详见docs/dingtalk-notifications.md。
+V0.3.22通知维护：本维护电脑配置liruiqi本人原钉钉绑定路由后，执行scripts/install_notification_check.ps1，回读每日16:50、pythonw.exe动作及执行结果。普通只读同事不要安装采集和通知检查。卡片先用app.notification_cards --preview-to-me仅本人验收；确认后再启用正式卡片。详见docs/dingtalk-notifications.md。

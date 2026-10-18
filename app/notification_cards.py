@@ -42,7 +42,7 @@ def card_body(text, origin, report_id):
     # 钉钉样式由官方客户端绘制；摘要正文限500字内，完整明细由按钮进入。
     title = lines[0][:70]
     chosen = [line for line in lines[1:] if not line.startswith(('打开看板：','三天计时','仅统计'))]
-    brief = '\n\n'.join(chosen)[:430]
+    brief = '\n\n'.join(chosen)[:min(430,490-len(title))]
     params = {'title': title, 'text': '### ' + title + '\n\n' + brief,
               'actionTitle1': '打开看板', 'actionURL1': origin + '/',
               'actionTitle2': '下载日报 PDF', 'actionURL2': origin + '/?report=' + report_id}
@@ -54,6 +54,17 @@ def operator_config(store):
     from app.remote_access import RemoteGateway
     folder = store.private / 'dingtalk'
     value = json.loads((folder / 'notifications.json').read_text('utf-8-sig'))
+    if value.get('push_paused') is True:
+        raise ValueError('通知已由管理员暂停')
+    if value.get('sender_profile') == 'independent':
+        from app.notification_transport import independent_sender
+        if value.get('operator_alerts_enabled') is not True:
+            raise ValueError('李睿琪异常提醒未启用')
+        credentials, routes = independent_sender(store, value)
+        origin = RemoteGateway(store).origin
+        if not origin:
+            raise ValueError('通知看板入口尚未配置')
+        return value, credentials, origin, routes['liruiqi']['user_id']
     credentials = DingTalkLogin(store).config
     origin = RemoteGateway(store).origin
     route = json.loads((folder / 'liruiqi_notification_route.json').read_text('utf-8'))
@@ -71,7 +82,7 @@ def operator_config(store):
     return value, credentials, origin, route['user_id']
 
 
-def preview(store, *, at=None, service=None):
+def preview(store, *, at=None, service=None, with_image=False):
     from app.after_sales import AfterSales
     at = at or datetime.now(TZ)
     value, credentials, origin, target = operator_config(store)
@@ -89,7 +100,17 @@ def preview(store, *, at=None, service=None):
         # 去除以预览当天重新统计的新增/完成，避免旧资料被误写为今天数据。
         lines = [line for line in lines if not line.startswith('今日新增生产事项')]
         body = card_body('\n'.join(lines), origin, report_id)
-        key = hashlib.sha256(f'card-preview-v1|{at.date()}|{target}|{channel}'.encode()).hexdigest()
+        revision='image-v1' if with_image else 'v1'
+        key = hashlib.sha256(f'card-preview-{revision}|{at.date()}|{target}|{channel}'.encode()).hexdigest()
+        if with_image:
+            with service.connect() as c:
+                existing=c.execute('SELECT state FROM outbox WHERE id=?',(key,)).fetchone()
+            if existing:
+                continue
+            from app.notification_image import add_image
+            from app.dingtalk_notifications import RobotClient
+            client=service.client or RobotClient(credentials,value['robot_code'])
+            body=add_image(store,client,'\n'.join(lines),body)
         service.send_one(key, str(at.date()), 'operator-preview', target, body, 'card-preview', credentials, value['robot_code'])
     return {'state':'checked','channels':service.status(str(at.date()))}
 
@@ -130,11 +151,12 @@ def notify_failure(store, state):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--preview-to-me',action='store_true')
+    parser.add_argument('--preview-image-to-me',action='store_true')
     parser.add_argument('--check-deadline',action='store_true')
     args = parser.parse_args()
     store = Store(Path(__file__).resolve().parents[1])
-    if args.preview_to_me:
-        result = preview(store)
+    if args.preview_to_me or args.preview_image_to_me:
+        result = preview(store,with_image=args.preview_image_to_me)
     elif args.check_deadline:
         from app.jobs import Jobs
         result = check_failure(store, Jobs(store.workspace).status(), deadline=True)

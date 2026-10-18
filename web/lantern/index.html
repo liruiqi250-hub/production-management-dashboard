@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#234d78">
-  <title>彩灯生产管理 V0.3.21</title>
-  <link rel="stylesheet" href="/styles.css?v=0.3.21">
-  <script src="/app.js?v=0.3.21" defer></script>
+  <title>彩灯生产管理 V0.3.22</title>
+  <link rel="stylesheet" href="/styles.css?v=0.3.22">
+  <script src="/app.js?v=0.3.22" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -15,7 +15,7 @@
     <form id="login-form" class="login-card">
       <div class="brand-icon" aria-hidden="true">灯</div>
       <h1>彩灯生产管理</h1>
-      <p class="muted">彩灯 · 公司内网 · V0.3.21</p>
+      <p class="muted">彩灯 · 公司内网 · V0.3.22</p>
       <label>账号<input name="username" autocomplete="username" required maxlength="32" placeholder="请输入授权账号"></label>
       <label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="120"></label>
       <p id="login-error" class="error" role="alert"></p>
@@ -39,7 +39,7 @@
   </section>
   <div id="application" hidden>
     <header class="topbar">
-      <div class="brand"><div class="brand-icon" aria-hidden="true">灯</div><div><h1>彩灯生产管理</h1><p class="muted">销售支持部 · 项目进度与出货 <span class="version">V0.3.21</span></p></div></div>
+      <div class="brand"><div class="brand-icon" aria-hidden="true">灯</div><div><h1>彩灯生产管理</h1><p class="muted">销售支持部 · 项目进度与出货 <span class="version">V0.3.22</span></p></div></div>
       <div class="userbar"><span id="user-name"></span><button id="refresh-button" type="button">刷新</button><button id="logout-button" type="button">退出</button></div>
     </header>
     <nav class="navigation" aria-label="页面"><button data-page="projects" aria-current="page">总览</button><button data-page="shipments">出货台账</button><button id="documents-nav" data-page="documents">制作报关资料</button><button id="accounts-nav" data-page="accounts">设置</button></nav>
@@ -95,7 +95,7 @@
       </section>
   <section data-view="documents" hidden><div class="page-heading"><div><h2>制作报关资料</h2><p class="muted">上传PI与装箱单 → 核对提取信息 → 生成对应公司的报关资料。</p></div></div><section id="doc-panel" class="panel" aria-labelledby="doc-title"><form id="doc-form"><div class="dialog-heading"><h3 id="doc-title">资料提取与核对</h3><button id="close-documents" type="button">返回总览</button></div><div id="doc-body"><label>公司模板<select id="doc-template" name="template_id" required><option value="">正在读取模板…</option></select></label><div class="document-upload-grid"><section class="upload-area"><h3>PI信息</h3><label>上传PI<input id="doc-pi-file" type="file" accept=".docx,.xlsx,.xls,.csv,.txt"></label><button id="extract-pi" type="button">提取并填写PI</button><p id="doc-pi-status" class="small muted" aria-live="polite"></p></section><section class="upload-area"><h3>装箱汇总</h3><label>上传装箱表<input id="doc-packing-file" type="file" accept=".xls,.xlsx,.csv"></label><button id="extract-packing" type="button">提取并填写装箱表</button><p id="doc-packing-status" class="small muted" aria-live="polite"></p></section></div><p class="small muted">可以上传后修改，也可以直接手填。装箱表已有“总计 / 合计 / TOTAL”时优先取该行；重量与体积单位请按原表核对。</p><div id="doc-warnings" class="notice" role="status" hidden></div><div id="doc-fields"></div><label class="checkbox document-confirm"><input id="doc-confirmed" type="checkbox" required>已核对PI信息和装箱合计</label></div><p id="doc-error" class="notice error" role="alert" hidden></p><div class="dialog-footer"><span class="small muted">生成Excel供核对使用，文件不自动发送、不签章。</span><div class="actions"><button id="cancel-documents" type="button">清空重新填写</button><button id="generate-documents" class="primary" type="submit">生成并下载Excel</button></div></div></form></section></section>
     </main>
-    <footer><span>彩灯生产管理 · V0.3.21 · 内网授权访问</span><span id="refresh-status" aria-live="polite">每30秒刷新</span></footer>
+    <footer><span>彩灯生产管理 · V0.3.22 · 内网授权访问</span><span id="refresh-status" aria-live="polite">每30秒刷新</span></footer>
   </div>
   <dialog id="editor-dialog" aria-labelledby="editor-title"><form id="editor-form"><div class="dialog-heading"><h2 id="editor-title"></h2><button id="close-editor" class="icon-button" type="button" aria-label="关闭编辑窗口">×</button></div><div id="editor-body"></div><p id="editor-error" class="notice error" role="alert" hidden></p><div class="dialog-footer"><span id="editor-hint" class="small muted">表单打开期间暂停自动刷新。</span><div class="actions"><button id="cancel-editor" type="button">取消</button><button id="save-editor" class="primary" type="submit">保存</button></div></div></form></dialog>
 

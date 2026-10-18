@@ -1,4 +1,4 @@
-# 钉钉登录 V0.3.21
+# 钉钉登录 V0.3.22
 
 本功能支持普通浏览器OAuth授权登录及钉钉工作台内自动登录。普通浏览器仍需点击使用钉钉登录；钉钉内打开时自动识别当前身份，沿用既有绑定进入本人事项。真实端内桥接须在实际钉钉客户端验收，不能以模拟结果代替。现有12小时看板会话不延长，平台身份接口所需联网仍须可用，看板本身继续仅在内网服务。
 
@@ -30,7 +30,7 @@
 
 接口依据：[钉钉官方授权码教程](https://open-dingtalk.github.io/developerpedia/docs/develop/permission/token/browser/get_user_app_token_browser/)、[官方SDK授权码接口](https://github.com/alibabacloud-go/dingtalk/blob/master/oauth2_1_0/client.go)、[官方SDK个人身份接口](https://github.com/alibabacloud-go/dingtalk/blob/master/contact_1_0/client.go)。
 
-## 工作台端内自动登录 V0.3.21
+## 工作台端内自动登录 V0.3.22
 
 - 在公司钉钉工作台点击应用，页面先显示身份识别状态；默认根首页无需更换地址。只在钉钉UA中自动运行桥接，普通浏览器不加载SDK或自动跳转。UA本身不构成身份凭据。
 - 固定企业应用token：POST `/v1.0/oauth2/{corpId}/token`；微应用免登码：`runtime.permission.requestAuthCode`；用户身份：POST `/topapi/v2/user/getuserinfo`。只取unionid，与原OAuth绑定共用同一企业和主体哈希，不额外读取人员详情、手机号或部门。不混用OAuth授权码与微应用免登码。
@@ -39,6 +39,6 @@
 - 识别失败、SDK或原生回调超时显示恢复提示并保留原登录入口。退出只停留当前页，不立即再次免登；重新打开工作台时再识别。企业额外已开权限和应用可见范围均不更改。
 - SDK固定3.2.9，只打包需要的桥接，来源、完整性、许可见web/vendor及dependencies/dingtalk-jsapi-build.lock.json，重建见scripts/build_dingtalk_sdk.ps1。运行包接收电脑无需Node/npm。
 
-V0.3.21可选日报推送：仅在本机明确配置 `capture_leader_route` 后，固定企业原生免登成功且主体哈希匹配原 `zengyue` 绑定时，保存该响应中曾悦本人的userid到私有消息路由。不读取其他成员通讯录，不改变登录结果和权限。详见 [日报推送](dingtalk-notifications.md)。
+V0.3.22可选日报推送：仅在本机明确配置 `capture_leader_route` 后，固定企业原生免登成功且主体哈希匹配原 `zengyue` 绑定时，保存该响应中曾悦本人的userid到私有消息路由。不读取其他成员通讯录，不改变登录结果和权限。详见 [日报推送](dingtalk-notifications.md)。
 
 依据：[官方微应用免登示例](https://github.com/open-dingtalk/h5app-auth-demo)、[官方固定企业应用token协议](https://open-dingtalk.github.io/developerpedia/docs/develop/permission/single_to_multi/new_get_app_token/)。
