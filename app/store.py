@@ -382,15 +382,13 @@ class Store:
             current_scope = overrides.get("closure_scope", base.get("closure_scope"))
             changing_closed_scope = changes.get("status", current_status) == "已解决" and "closure_scope" in changes and changes["closure_scope"] != current_scope
             if changes.get("status") == "已解决" or changing_closed_scope:
-                if not note.strip():
-                    raise ValueError("关闭事项必须填写实际完成或验收依据")
                 changes["closed_at"] = now()
                 changes["review_state"] = "李睿琪已复核" if is_admin else "员工手工补录完成"
                 changes["completion_source"] = "manual"
                 changes["completed_by"] = username
                 changes["completed_by_name"] = actor["display_name"]
-                changes["closure_scope"] = changes.get("closure_scope") or (current_scope if current_status == "已解决" else None) or "仅本事项所述工作，人工补录完成；以完成说明为准"
-                overrides.setdefault("manual_evidence", []).append({"locator": "manual:" + uuid.uuid4().hex, "time": now(), "sender": actor["display_name"], "text": note.strip()})
+                changes["closure_scope"] = changes.get("closure_scope") or (current_scope if current_status == "已解决" else None) or ("仅本事项所述工作，人工补录完成；以完成说明为准" if note.strip() else "仅本事项所述工作，人工标记完成；未填写补充说明")
+                overrides.setdefault("manual_evidence", []).append({"locator": "manual:" + uuid.uuid4().hex, "time": now(), "sender": actor["display_name"], "text": note.strip() or "看板人工标记已完成，未填写补充说明；不代表聊天确认或客户验收"})
             elif "status" in changes:
                 changes["closed_at"] = None
                 changes["review_state"] = "李睿琪人工更新" if is_admin else "处理人员更新，待李睿琪复核"

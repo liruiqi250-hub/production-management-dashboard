@@ -235,8 +235,6 @@ class StoreServerTests(unittest.TestCase):
 
     def test_editor_can_complete_without_chat_result_with_manual_audit(self):
         editor = self.login("test_editor")
-        status, _, _ = self.request("PATCH", "/api/items/SYNTHETIC-001", {"status": "已解决"}, editor)
-        self.assertEqual(status, 400)
         changes = {"status": "已解决", "closure_note": "虚构员工现场已处理，微信群尚未反馈", "closure_scope": "仅虚构处理节点"}
         status, body, _ = self.request("PATCH", "/api/items/SYNTHETIC-001", changes, editor)
         self.assertEqual(status, 200)
@@ -249,12 +247,30 @@ class StoreServerTests(unittest.TestCase):
         self.store.import_snapshot(self.snapshot)
         self.assertEqual(self.store.snapshot()["items"][0]["status"], "已解决")
 
-    def test_closed_scope_change_requires_new_admin_evidence(self):
+    def test_editor_can_complete_without_note_and_preserves_manual_source(self):
+        editor = self.login("test_editor")
+        status, body, _ = self.request("PATCH", "/api/items/SYNTHETIC-001", {"status": "已解决", "closure_note": ""}, editor)
+        self.assertEqual(status, 200)
+        item = json.loads(body)["item"]
+        self.assertEqual(item["completed_by"], "test_editor")
+        self.assertEqual(item["completion_source"], "manual")
+        self.assertTrue(item["closed_at"])
+        self.assertIn("未填写补充说明", item["evidence"][-1]["text"])
+        self.assertTrue(item["evidence"][-1]["locator"].startswith("manual:"))
+        self.assertIsNone(item.get("stage_confirmation"))
+        with self.store.connect() as conn:
+            event = conn.execute("SELECT details_json FROM audit WHERE action='update_item' AND item_id=? ORDER BY rowid DESC LIMIT 1", ("SYNTHETIC-001",)).fetchone()
+        self.assertEqual(json.loads(event[0])["closure_note"], "")
+        self.store.import_snapshot(self.snapshot)
+        self.assertEqual(self.store.snapshot()["items"][0]["status"], "已解决")
+
+    def test_closed_scope_change_can_leave_note_empty(self):
         self.store.update_item("SYNTHETIC-001", {"status": "已解决", "closure_note": "第一份虚构确认依据", "closure_scope": "第一阶段"}, "liruiqi")
-        with self.assertRaises(ValueError):
-            self.store.update_item("SYNTHETIC-001", {"closure_scope": "第二阶段"}, "liruiqi")
-        item = self.store.update_item("SYNTHETIC-001", {"closure_scope": "第二阶段", "closure_note": "第二份虚构确认依据"}, "liruiqi")
+        item = self.store.update_item("SYNTHETIC-001", {"closure_scope": "第二阶段"}, "liruiqi")
         self.assertEqual(item["closure_scope"], "第二阶段")
+        self.assertIn("未填写补充说明", item["evidence"][-1]["text"])
+        item = self.store.update_item("SYNTHETIC-001", {"closure_scope": "第三阶段", "closure_note": "第二份虚构确认依据"}, "liruiqi")
+        self.assertEqual(item["closure_scope"], "第三阶段")
         self.assertEqual(item["evidence"][-1]["text"], "第二份虚构确认依据")
         self.assertEqual(item["review_state"], "李睿琪已复核")
 

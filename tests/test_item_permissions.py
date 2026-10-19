@@ -49,7 +49,7 @@ class ItemPermissionsTests(unittest.TestCase):
     def test_other_and_unassigned_reject_all_writes_without_side_effects(self):
         before=self.hashes()
         for item in (self.other,self.unassigned):
-            for changes in ({'status':'处理中'},{'deadline':'越权期限'},{'owner':'张英'},{'owner':'张英','owner_confirmation':'confirmed'},{'status':'已解决','closure_note':'越权完成'}):
+            for changes in ({'status':'处理中'},{'deadline':'越权期限'},{'owner':'张英'},{'owner':'张英','owner_confirmation':'confirmed'},{'status':'已解决'},{'status':'已解决','closure_note':'越权完成'}):
                 with self.subTest(item=item,changes=changes):self.assertEqual(self.patch('/api/items/'+item,changes)[0],403)
         self.assertEqual(before,self.hashes())
 

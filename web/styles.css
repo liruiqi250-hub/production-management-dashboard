@@ -364,3 +364,100 @@ dialog::backdrop { background: rgba(16,26,43,.65); }
 
 .login-card .checkbox{min-height:44px;cursor:pointer}
 .login-card .checkbox input[type="checkbox"]{-webkit-appearance:auto;appearance:auto;accent-color:var(--brand);cursor:pointer;flex:0 0 18px;width:18px;height:18px;min-height:18px;padding:0;margin:3px 0 0;align-self:flex-start}
+
+/* V0.3.24：导航和操作上下文留在视口，长详情在自身区域滚动。 */
+:root {
+  --sticky-header-height: 88px;
+  --sticky-nav-height: 61px;
+  --page-scroll-offset: calc(var(--sticky-header-height) + 16px);
+}
+html { scroll-padding-top: calc(var(--page-scroll-offset) + var(--sticky-tools-height, 0px)); }
+.topbar { position: sticky; top: 0; z-index: 30; }
+.navigation {
+  position: fixed; top: var(--sticky-header-height); bottom: 0;
+  min-height: 0; overflow-y: auto; overscroll-behavior: contain; z-index: 20;
+}
+#detail-home {
+  position: sticky; top: var(--page-scroll-offset); min-width: 0;
+}
+#detail-home .detail {
+  padding: 0;
+  max-height: calc(100vh - var(--page-scroll-offset) - 16px);
+  max-height: calc(100dvh - var(--page-scroll-offset) - 16px);
+  overflow-y: auto; scrollbar-gutter: stable; scrollbar-color: var(--control) var(--panel);
+}
+.detail-heading { position: sticky; top: 0; z-index: 2; background: var(--panel); padding: 12px 24px 16px; border-bottom: 1px solid var(--line); }
+.detail-body { padding: 0 24px 20px; }
+.detail-heading h3 { font-size: 18px; margin: 8px 0 12px; }
+.detail-heading .badge { margin-top: 6px; }
+.detail dl { border-top: 0; }
+#staff-detail, #item-detail, .after-case { scroll-margin-top: 0; }
+.sticky-tools {
+  position: sticky; top: var(--page-scroll-offset); z-index: 10;
+  padding: 12px 0; background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.dialog-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 3; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.dialog-toolbar .dialog-close { position: static; margin: 0; }
+#detail-dialog { padding: 0; overflow-y: auto; overscroll-behavior: contain; scroll-padding-top: 76px; }
+#dialog-body { padding: 0 20px 20px; }
+#detail-dialog .detail-heading { position: static; }
+#detail-dialog .detail-heading, #detail-dialog .detail-body { padding-inline: 0; }
+@media (min-width: 781px) and (max-width: 900px) {
+  .detail-heading { padding-inline: 16px; }
+  .detail-body { padding-inline: 16px; }
+}
+@media (max-width: 780px) {
+  :root { --page-scroll-offset: calc(var(--sticky-nav-height) + 8px); }
+  .topbar { position: static; }
+  .navigation { position: sticky; top: 0; bottom: auto; overflow-x: auto; overflow-y: hidden; z-index: 30; }
+  #detail-home { position: static; }
+  .sticky-tools { padding: 8px 0; }
+  [data-view="completed"]>.sticky-tools { align-items: center; gap: 8px; }
+  [data-view="completed"]>.sticky-tools>div:first-child { flex-basis: 100%; }
+  [data-view="completed"]>.sticky-tools .export-tools { display: flex; align-items: end; }
+  [data-view="completed"]>.sticky-tools .export-tools label { flex: 1; }
+  [data-view="completed"]>.sticky-tools .export-tools button { flex: none; padding-inline: 12px; }
+  [data-view="completed"]>.sticky-tools p { display: none; }
+}
+@media (max-height: 500px) and (min-width: 781px) {
+  .topbar { min-height: 64px; padding-block: 8px; }
+  .navigation { padding-block: 12px; gap: 4px; }
+}
+
+/* V0.3.25：筛选、标题与保存操作保持可见，仅正文滚动。 */
+.filters.followup-filters {
+  padding: 16px 20px; background: var(--panel); border: 1px solid var(--line);
+}
+[data-view="followup"] #detail-home {
+  top: calc(var(--page-scroll-offset) + var(--sticky-tools-height, 0px));
+}
+#item-detail { display: flex; flex-direction: column; overflow: hidden; }
+#detail-home #item-detail {
+  max-height: calc(100vh - var(--page-scroll-offset) - var(--sticky-tools-height, 0px) - 16px);
+  max-height: calc(100dvh - var(--page-scroll-offset) - var(--sticky-tools-height, 0px) - 16px);
+  max-height: var(--detail-max-height, calc(100dvh - var(--page-scroll-offset) - var(--sticky-tools-height, 0px) - 16px));
+  overflow: hidden;
+}
+.detail-heading { position: static; flex: none; }
+.detail-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-color: var(--control) var(--panel); }
+.detail-actions { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 20px; background: var(--panel); border-top: 1px solid var(--line); }
+.detail-actions .primary { flex: 1; }
+.detail-save-status { flex-basis: 100%; overflow-wrap: anywhere; }
+.detail-save-status:empty { display: none; }
+#item-detail>h3:only-child { padding: 20px; }
+#detail-dialog[open] { display: flex; flex-direction: column; }
+#detail-dialog .dialog-toolbar { position: static; flex: none; }
+#dialog-body { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
+#detail-dialog #item-detail { min-height: 0; padding: 0; max-height: calc(92svh - 70px); }
+#detail-dialog .detail-heading, #detail-dialog .detail-body { padding-inline: 20px; }
+#detail-dialog .detail-actions { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.usage-notes>summary { font-weight: 600; color: var(--brand); }
+@media (min-width: 781px) and (max-width: 1180px) {
+  .filters.followup-filters { grid-template-columns: repeat(4,minmax(0,1fr)); padding: 12px; gap: 8px; }
+  .filters.followup-filters .group-filter-field { grid-column: 1/4; }
+  .filters.followup-filters .checkbox { grid-column: 4; align-self: end; }
+}
+@media (max-width: 780px) {
+  .filters.followup-filters { padding: 12px; gap: 8px 12px; }
+  .detail-actions>button { min-height: 44px; }
+}
