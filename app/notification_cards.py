@@ -118,8 +118,8 @@ def preview(store, *, at=None, service=None, with_image=False):
 def check_failure(store, state, *, at=None, deadline=False, service=None):
     at = at or datetime.now(TZ)
     day = str(at.date())
-    # 15:30前人工试跑不触发每日失败通知；截止检查从16:50开始。
-    if at.time() < time(15,30) or deadline and at.time() < time(16,50):
+    # 给每日整理及恢复留出时间，16:30以前不发送异常提醒。
+    if at.time() < time(16,30):
         return {'state':'deferred'}
     today = day_of(state.get('started_at')) == day
     if today:

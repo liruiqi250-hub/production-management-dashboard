@@ -77,9 +77,12 @@ class AlertTests(unittest.TestCase):
 
     def run_check(self,state,at=AT,deadline=False):return check_failure(self.store,state,at=at,deadline=deadline,service=self.service)
 
-    def test_failure_immediate_and_deadline_share_one_private_message(self):
+    def test_failure_waits_until_1630_and_shares_deadline_dedupe(self):
         state={'id':'example-job','started_at':AT.replace(hour=15,minute=30).isoformat(),'state':'failed','message':'sensitive-source-not-for-notification'}
-        self.run_check(state,at=AT.replace(hour=16,minute=5));self.run_check(state,deadline=True)
+        self.run_check(state,at=AT.replace(hour=15,minute=47))
+        self.run_check(state,at=AT.replace(hour=16,minute=29))
+        self.assertFalse(self.client.calls)
+        self.run_check(state,at=AT.replace(hour=16,minute=30));self.run_check(state,deadline=True)
         self.assertEqual(len(self.client.calls),1)
         channel,target,text=self.client.calls[0];self.assertEqual((channel,target),('operator-alert','example-only-me'))
         self.assertIn('整理失败',text);self.assertNotIn('sensitive-source',text)
@@ -93,10 +96,23 @@ class AlertTests(unittest.TestCase):
         self.assertEqual(len(self.client.calls),4)
 
     def test_completed_and_early_check_send_nothing(self):
-        self.run_check({},at=AT.replace(hour=16,minute=49),deadline=True)
+        self.run_check({},at=AT.replace(hour=16,minute=29),deadline=True)
         self.run_check({'started_at':AT.replace(hour=15,minute=30).isoformat(),'state':'completed'},deadline=True)
         self.run_check({'started_at':AT.replace(hour=9).isoformat(),'state':'failed'},at=AT.replace(hour=10))
         self.assertFalse(self.client.calls)
+
+    def test_failure_recovered_before_check_never_sends_warning(self):
+        state={'id':'example-job','started_at':AT.replace(hour=15,minute=35).isoformat(),'state':'failed'}
+        self.run_check(state,at=AT.replace(hour=15,minute=47))
+        state['state']='completed'
+        self.run_check(state,at=AT.replace(hour=16,minute=30),deadline=True)
+        self.run_check(state,deadline=True)
+        self.assertFalse(self.client.calls)
+
+    def test_first_deadline_check_at_1630_then_1650_sends_once(self):
+        self.run_check({},at=AT.replace(hour=16,minute=30),deadline=True)
+        self.run_check({},at=AT.replace(hour=16,minute=50),deadline=True)
+        self.assertEqual(len(self.client.calls),1)
 
     def test_unknown_alert_is_not_automatically_repeated_and_late_label(self):
         self.client.error=TimeoutError()

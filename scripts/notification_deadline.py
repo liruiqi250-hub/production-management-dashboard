@@ -10,6 +10,6 @@ from app.notification_cards import check_failure
 try:
     result = check_failure(Store(ROOT),Jobs(ROOT).status(),deadline=True)
 except Exception:
-    result = {'state':'failed','message':'16:50本人提醒检查未完成，请核对本机钉钉配置、网络和账号绑定'}
+    result = {'state':'failed','message':'本人定时提醒检查未完成，请核对本机钉钉配置、网络和账号绑定'}
 folder = ROOT / 'private/notifications';folder.mkdir(parents=True,exist_ok=True)
 (folder/'deadline_check.json').write_text(json.dumps({'checked_at':now(),**result},ensure_ascii=False,indent=2),'utf-8')

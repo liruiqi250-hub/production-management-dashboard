@@ -11,8 +11,11 @@ if ($existing -and (@($existing.Actions).Count -ne 1 -or -not $existing.Actions[
 }
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $action = New-ScheduledTaskAction -Execute $pythonwPath -Argument ('-X utf8 -B "' + $entry + '"') -WorkingDirectory $workspacePath
-$trigger = New-ScheduledTaskTrigger -Daily -At '16:50'
+$triggers = @(
+  (New-ScheduledTaskTrigger -Daily -At '16:30'),
+  (New-ScheduledTaskTrigger -Daily -At '16:50')
+)
 $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 3)
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description '16:50静默检查当天整理；未成功则仅提醒李睿琪，独立于Codex窗口。' -Force | Out-Null
-Write-Output ('已安装16:50本人异常提醒检查：' + $taskName)
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $triggers -Principal $principal -Settings $settings -Description '16:30统一检查当天整理，16:50兜底；16:30前不提醒，成功不发、同日防重，仅提醒李睿琪。' -Force | Out-Null
+Write-Output ('已安装16:30检查及16:50兜底本人提醒：' + $taskName)
