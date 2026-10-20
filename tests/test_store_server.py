@@ -3,6 +3,7 @@
 import copy
 import http.client
 import json
+import re
 import tempfile
 import threading
 import unittest
@@ -97,6 +98,22 @@ class StoreServerTests(unittest.TestCase):
                      "/api/v1/reports?kind=daily&end=2026-10-12&format=json"):
             with self.subTest(path=path):
                 self.assertEqual(self.request("GET", path)[0], 401)
+
+    def test_draft_scripts_served_as_javascript_in_dependency_order(self):
+        status, body, _ = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        sources = re.findall(r'<script\b[^>]*\bsrc="([^"]+)"[^>]*>', body.decode("utf-8"))
+        scripts = [source.split("?", 1)[0] for source in sources]
+        expected = ["/drafts.js", "/draft-forms.js", "/app.js", "/production.js"]
+        self.assertEqual([source for source in scripts if source in expected], expected)
+        for source in sources:
+            if source.split("?", 1)[0] not in {"/drafts.js", "/draft-forms.js"}:
+                continue
+            with self.subTest(source=source):
+                status, script, headers = self.request("GET", source)
+                self.assertEqual(status, 200)
+                self.assertTrue(headers["Content-Type"].startswith("text/javascript"))
+                self.assertTrue(script.strip(), "草稿脚本不能为空")
 
     def test_viewer_cannot_modify_production_or_create_users(self):
         viewer = self.login("test_viewer")

@@ -225,14 +225,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             return self.wfile.write(body)
-        if path in {"/", "/index.html", "/app.js", "/production.js", "/styles.css"}:
+        if path in {"/", "/index.html", "/app.js", "/drafts.js", "/draft-forms.js", "/production.js", "/styles.css"}:
             name = "index.html" if path == "/" else path.lstrip("/")
             target = ROOT / "web" / name
             if not target.is_file():
                 return self.json({"error": "页面文件未就绪"}, 503)
             body = target.read_bytes()
             self.send_response(200)
-            self.common_headers({"index.html": "text/html; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "production.js": "text/javascript; charset=utf-8", "styles.css": "text/css; charset=utf-8"}[name])
+            self.common_headers("text/html; charset=utf-8" if name == "index.html" else "text/css; charset=utf-8" if name == "styles.css" else "text/javascript; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             return self.wfile.write(body)

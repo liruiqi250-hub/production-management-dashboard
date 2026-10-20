@@ -445,6 +445,15 @@ html { scroll-padding-top: calc(var(--page-scroll-offset) + var(--sticky-tools-h
 .detail-save-status { flex-basis: 100%; overflow-wrap: anywhere; }
 .detail-save-status:empty { display: none; }
 #item-detail>h3:only-child { padding: 20px; }
+.draft-notice { padding: 12px; background: var(--brandbg); color: var(--brand); border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; }
+.draft-notice p { margin: 0; }
+.draft-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.draft-actions button { min-height: 44px; }
+.production-piece-summary strong { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.production-checkpoints { display: block; flex-basis: 100%; min-width: 0; font-size: 12px; line-height: 1.7; }
+.production-checkpoint { display: block; overflow-wrap: anywhere; }
+.production-checkpoint[data-state="返工"], .production-checkpoint[data-state="暂缓"] { color: var(--red); }
+.production-checkpoint[data-state="待业务确认"] { color: var(--warn); }
 #detail-dialog[open] { display: flex; flex-direction: column; }
 #detail-dialog .dialog-toolbar { position: static; flex: none; }
 #dialog-body { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }

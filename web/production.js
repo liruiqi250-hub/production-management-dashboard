@@ -18,16 +18,16 @@ function masterEditor(kind,record){
  for(const [name,label,limit] of specs){const input=node('input',{name,maxlength:String(limit),type:name==='received_on'?'date':'text'});input.value=record[name]||'';fields[name]=input;form.append(productionField(label,input));}
  const button=node('button',{class:'primary',type:'submit'},'保存资料'),feedback=productionFeedback();form.append(button,feedback);
  productionSave(form,button,feedback,order?'/api/production/orders/'+encodeURIComponent(record.id):'/api/production/pieces/'+encodeURIComponent(record.id),()=>Object.fromEntries(Object.entries(fields).map(([name,input])=>[name,input.value])),order?null:record.id);
- editor.append(form);return editor;
+ editor.dataset.draftView=kind+':'+record.id;editor.append(form);trackDraft(form,kind+':'+record.id);return editor;
 }
-async function reloadProduction(openId){
- state.production=await api('/api/production');
- renderProduction(openId);
+async function reloadProduction(openId,form){
+ const fresh=await api('/api/production');if(form&&!draftRequestCurrent(form))return;state.production=fresh;
+ pruneBusinessDrafts();renderProduction(openId);
 }
 function productionSave(form,button,feedback,endpoint,body,openId){
  form.addEventListener('submit',async event=>{
-  event.preventDefault();button.disabled=true;feedback.textContent='正在保存…';feedback.className='small production-feedback';
-  try{await api(endpoint,{method:'PATCH',body:body()});await reloadProduction(openId);showError('');}
+  event.preventDefault();const submitted=draftSnapshot(form);button.disabled=true;feedback.textContent='正在保存…';feedback.className='small production-feedback';
+  try{await api(endpoint,{method:'PATCH',body:body()});if(!draftRequestCurrent(form))return;acknowledgeDraft(form,submitted,endpoint.endsWith('/delivery')?{note:'',source_ref:''}:{});feedback.textContent='已保存，正在刷新…';try{await reloadProduction(openId,form);if(!draftRequestCurrent(form))return;showError('');}catch(error){feedback.textContent='已保存，但刷新失败：'+error.message+'；请点击刷新重试。';feedback.className='small error';}}
   catch(error){feedback.textContent=error.message;feedback.className='small error';}
   finally{button.disabled=false;}
  });
@@ -55,7 +55,7 @@ function stageEditor(piece,stage,editable){
  const button=node('button',{class:'primary',type:'submit'},'保存工序'),feedback=productionFeedback();
  form.append(fields,productionField('具体说明',note),productionField('来源定位',source),button,feedback);
  productionSave(form,button,feedback,'/api/production/pieces/'+encodeURIComponent(piece.id)+'/stage',()=>({stage:stage.stage,state:status.value,basis:basis.value,note:note.value,source_ref:source.value}),piece.id);
- editor.append(form);row.append(editor);return row;
+ editor.dataset.draftView='stage:'+piece.id+':'+stage.stage;editor.append(form);trackDraft(form,editor.dataset.draftView);row.append(editor);return row;
 }
 function deliveryEditor(piece,editable){
  const block=node('section',{class:'delivery-block'});
@@ -69,7 +69,7 @@ function deliveryEditor(piece,editable){
  const button=node('button',{class:'primary',type:'submit'},'保存交付'),feedback=productionFeedback();
  form.append(productionField('交付状态',status),productionField('说明',note),productionField('来源定位',source),button,feedback);
  productionSave(form,button,feedback,'/api/production/pieces/'+encodeURIComponent(piece.id)+'/delivery',()=>({state:status.value,note:note.value,source_ref:source.value}),piece.id);
- editor.append(form);block.append(editor);return block;
+ editor.dataset.draftView='delivery:'+piece.id;editor.append(form);trackDraft(form,editor.dataset.draftView);block.append(editor);return block;
 }
 function linkEditor(piece,editable){
  const block=node('section',{class:'production-links'});block.append(node('h4',{},'关联事项'));
@@ -87,8 +87,29 @@ function linkEditor(piece,editable){
  productionSave(form,button,feedback,'/api/production/pieces/'+encodeURIComponent(piece.id)+'/link',()=>{const [item_type,...parts]=select.value.split(':');return {item_type,item_id:parts.join(':')};},piece.id);
  block.append(form);return block;
 }
+function productionPieceSummary(piece){
+ const stages=piece.stages||[],complete=stages.filter(stage=>stage.state==='合格').length;
+ const attentionStates=['待业务确认','返工','暂缓'];
+ const blocked=stages.filter(stage=>attentionStates.includes(stage.state));
+ const summary=node('summary',{class:'production-piece-summary'});
+ summary.append(node('strong',{},piece.piece_label+' · '+piece.product_name),node('span',{class:'small'},`合格 ${complete}/6 · 交付 ${piece.delivery_state}`));
+ if(blocked.length)summary.append(node('span',{class:'production-attention'},`${blocked.length} 道待处理`));
+ const checkpoints=node('span',{class:'production-checkpoints'});
+ for(const status of [...attentionStates,'未核对']){
+  const matching=stages.filter(stage=>stage.state===status);
+  if(matching.length)checkpoints.append(node('span',{class:'production-checkpoint'+(status==='未核对'?' muted':''),'data-state':status},`${status} ${matching.length} 道：${matching.map(stage=>stage.stage).join('、')}`));
+ }
+ if(!checkpoints.childNodes.length){
+  let description='尚无工序记录';
+  if(stages.length&&complete===stages.length)description=`${complete} 道工序均已记录为合格`;
+  else if(stages.length)description=['进行中','未开始','不适用'].map(status=>{const count=stages.filter(stage=>stage.state===status).length;return count?`${status} ${count} 道`:'';}).filter(Boolean).join(' · ')||'请展开核对工序记录';
+  checkpoints.append(node('span',{class:'production-checkpoint muted'},description));
+ }
+ summary.append(checkpoints);return summary;
+}
 function renderProduction(openId){
  const data=state.production;if(!data)return;
+ const opened=rememberDraftDetails($('production-orders'));
  const orders=data.orders||[];
  $('production-admin').hidden=state.user?.role!=='admin';
  $('production-count').textContent=`${orders.length} 张生产单 · ${orders.reduce((sum,order)=>sum+order.pieces.length,0)} 件产品`;
@@ -100,7 +121,7 @@ function renderProduction(openId){
  clear(filter).append(node('option',{value:'all'},'全部生产单'));
  for(const order of orders)filter.append(node('option',{value:order.id},`${order.order_no||'未编号'} · ${order.title}`));
  filter.value=orders.some(order=>order.id===previous)?previous:'all';
- $('production-empty-note').textContent=orders.length?'工序状态由授权人员逐件保存，修改历史保留在单件详情。':'目前没有建立生产单。历史聊天事项尚未逐件归档，不应据此推定生产为零。';
+ $('production-empty-note').textContent=orders.length?'工序状态由授权人员逐件保存，修改历史保留在单件详情。未核对表示尚无人工核对结论，不代表未开始。':'目前没有建立生产单。历史聊天事项尚未逐件归档，不应据此推定生产为零。';
  const list=clear($('production-orders'));
  for(const order of orders.filter(order=>filter.value==='all'||filter.value===order.id)){
   const wrapper=node('details',{class:'production-order','data-order-id':order.id});wrapper.open=filter.value===order.id||orders.length===1||order.pieces.some(piece=>piece.id===openId);
@@ -113,12 +134,7 @@ function renderProduction(openId){
   for(const piece of order.pieces){
    const editable=canEditPiece(piece);
    const detail=node('details',{class:'production-piece','data-piece-id':piece.id});detail.open=piece.id===openId||orders.length===1&&order.pieces.length===1;
-   const complete=piece.stages.filter(stage=>stage.state==='合格').length;
-   const blocked=piece.stages.filter(stage=>['返工','暂缓','待业务确认'].includes(stage.state)).map(stage=>stage.stage);
-   const pieceSummary=node('summary',{class:'production-piece-summary'});
-   pieceSummary.append(node('strong',{},piece.piece_label+' · '+piece.product_name),node('span',{class:'small'},`合格 ${complete}/6 · 交付 ${piece.delivery_state}`));
-   if(blocked.length)pieceSummary.append(node('span',{class:'production-attention'},`${blocked.length} 道待处理`));
-   detail.append(pieceSummary);
+   detail.append(productionPieceSummary(piece));
    if(piece.source_ref)detail.append(node('p',{class:'small muted production-source'},'单件来源：'+piece.source_ref));
    if(state.user?.role==='admin')detail.append(masterEditor('piece',piece));
    const stages=node('div',{class:'stage-list'});
@@ -129,6 +145,7 @@ function renderProduction(openId){
   }
   list.append(wrapper);
  }
+ restoreDraftDetails(list,opened);
 }
 $('production-filter').addEventListener('change',()=>renderProduction());
 $('order-form').addEventListener('submit',async event=>{
