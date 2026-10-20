@@ -13,7 +13,7 @@ from typing import Iterable
 
 
 DEFAULT_REPO = "https://github.com/liruiqi250-hub/production-management-dashboard"
-TEXT_SUFFIXES = {".py", ".js", ".mjs", ".ts", ".css", ".html", ".json", ".md", ".txt",
+TEXT_SUFFIXES = {".py", ".js", ".cjs", ".mjs", ".ts", ".css", ".html", ".json", ".md", ".txt",
                  ".ps1", ".cmd", ".bat", ".toml", ".yaml", ".yml", ".csv",
                  ".ini", ".cfg", ".xml", ".sh", ".cmake"}
 ROOT_FILES = {".gitignore", "AGENTS.md", "README.md", "CHANGELOG.md", "VERSION", "INSTALL_FOR_CODEX.md",

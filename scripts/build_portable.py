@@ -253,6 +253,15 @@ def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = 
                 build_document_runtime(root, cache / "documents", source, offline=offline)
             except (OSError, ValueError, zipfile.BadZipFile) as exc:
                 raise BundleError("报关资料运行组件构建失败，请检查锁文件与缓存") from exc
+        if profile == "production":
+            try:
+                try:
+                    from scripts.build_production_document_runtime import build_production_document_runtime
+                except ModuleNotFoundError:
+                    from build_production_document_runtime import build_production_document_runtime
+                build_production_document_runtime(root, cache / "production-documents", source, offline=offline)
+            except (OSError, ValueError, zipfile.BadZipFile) as exc:
+                raise BundleError("生产资料运行组件构建失败，请检查锁文件与缓存") from exc
         if include_wechat:
             try:
                 from scripts.bundle_wechat_runtime import build_wechat_runtime, refresh_installation_records

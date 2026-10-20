@@ -22,7 +22,7 @@ class PublishGitHubTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             fixtures = {"VERSION": b"0.2.5\n", "app/main.py": b"print('ok')\n",
-                        "docs/guide.md": b"guide\n", "app/icon.png": b"image",
+                        "docs/guide.md": b"guide\n", "tests/frontend.test.cjs": b"'use strict';\n", "app/icon.png": b"image",
                         "app/cache.db": b"database", "outputs/report.md": b"local",
                         "app/runtime/state.json": b"{}", "web/untracked.js": b"local"}
             for name, data in fixtures.items():
@@ -30,7 +30,7 @@ class PublishGitHubTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(data)
             tracked = [name for name in fixtures if name != "web/untracked.js"]
-            self.assertEqual(set(collect_files(root, tracked)), {"VERSION", "app/main.py", "docs/guide.md"})
+            self.assertEqual(set(collect_files(root, tracked)), {"VERSION", "app/main.py", "docs/guide.md", "tests/frontend.test.cjs"})
 
     def test_sensitive_names_and_credentials_stop_before_copy(self):
         with tempfile.TemporaryDirectory() as folder:

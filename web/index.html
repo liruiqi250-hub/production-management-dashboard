@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>生产管理看板 V0.3.28</title><link rel="stylesheet" href="/styles.css?v=0.3.28"><script src="/drafts.js?v=0.3.28" defer></script><script src="/draft-forms.js?v=0.3.28" defer></script><script src="/app.js?v=0.3.28" defer></script><script src="/production.js?v=0.3.28" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>生产管理看板 V0.3.31</title><link rel="stylesheet" href="/styles.css?v=0.3.31"><script src="/drafts.js?v=0.3.31" defer></script><script src="/draft-forms.js?v=0.3.31" defer></script><script src="/app.js?v=0.3.31" defer></script><script src="/production.js?v=0.3.31" defer></script><script src="/production-documents.js?v=0.3.31" defer></script></head>
 <body>
 <section id="dingtalk-auto-screen" class="login-screen" hidden><div class="login-card"><div class="brand-icon">产</div><h1>正在登录生产看板</h1><p role="status">正在确认你的钉钉身份，完成后自动打开事项清单。</p></div></section>
 <section id="login-screen" class="login-screen">
-  <form id="login-form" class="login-card"><div class="brand-icon">产</div><h1>生产管理看板</h1><p class="muted">仿真恐龙 · 授权访问 · V0.3.28</p><label>账号<input name="username" autocomplete="username" required maxlength="32" placeholder="请输入授权账号"></label><label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="120"></label><div id="dingtalk-binding" class="binding-notice" hidden><p>钉钉身份已确认。首次绑定时，请输入你本人的看板账号和密码。</p><label class="checkbox"><input id="dingtalk-bind-confirm" type="checkbox">确认将当前钉钉绑定到我输入的账号</label></div><p id="login-error" class="error" role="alert"></p><button class="primary" type="submit">登录看板</button><div id="dingtalk-login-area" class="login-alternative" hidden><button id="dingtalk-login" type="button">使用钉钉登录</button><p class="small muted">电脑可扫码；手机可用钉钉授权。首次需绑定已有看板账号。</p></div><p class="small muted">仅限已授权人员。首次账号信息由李睿琪分配。</p></form>
+  <form id="login-form" class="login-card"><div class="brand-icon">产</div><h1>生产管理看板</h1><p class="muted">仿真恐龙 · 授权访问 · V0.3.31</p><label>账号<input name="username" autocomplete="username" required maxlength="32" placeholder="请输入授权账号"></label><label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="120"></label><div id="dingtalk-binding" class="binding-notice" hidden><p>钉钉身份已确认。首次绑定时，请输入你本人的看板账号和密码。</p><label class="checkbox"><input id="dingtalk-bind-confirm" type="checkbox">确认将当前钉钉绑定到我输入的账号</label></div><p id="login-error" class="error" role="alert"></p><button class="primary" type="submit">登录看板</button><div id="dingtalk-login-area" class="login-alternative" hidden><button id="dingtalk-login" type="button">使用钉钉登录</button><p class="small muted">电脑可扫码；手机可用钉钉授权。首次需绑定已有看板账号。</p></div><p class="small muted">仅限已授权人员。首次账号信息由李睿琪分配。</p></form>
 </section>
 <section id="password-required-screen" class="login-screen" hidden>
   <form id="first-password-form" class="login-card">
@@ -17,11 +17,11 @@
     <p id="first-password-error" class="error" role="alert"></p>
     <button class="primary" type="submit">保存新密码并重新登录</button>
     <button id="first-password-logout" type="button">退出登录</button>
-    <p class="small muted">公司内网 · V0.3.28</p>
+    <p class="small muted">公司内网 · V0.3.31</p>
   </form>
 </section>
 <div id="application" hidden>
-  <header class="topbar"><div class="brand"><div class="brand-icon">产</div><div><h1>生产管理</h1><p class="muted">仿真恐龙 · 订单问题与进度 <span class="version">V0.3.28</span></p></div></div><div class="userbar"><span id="user-name"></span><button id="refresh-button">刷新</button><button id="logout-button">退出</button></div></header>
+  <header class="topbar"><div class="brand"><div class="brand-icon">产</div><div><h1>生产管理</h1><p class="muted">仿真恐龙 · 订单问题与进度 <span class="version">V0.3.31</span></p></div></div><div class="userbar"><span id="user-name"></span><button id="refresh-button">刷新</button><button id="logout-button">退出</button></div></header>
   <nav class="navigation" aria-label="页面"><button data-page="overview" aria-current="page">厂长总览</button><button data-page="followup">跟进清单</button><button data-page="production">生产进度</button><button data-page="completed">单日已完成</button><button data-page="work">事项工作台</button><button data-page="after-sales">售后跟进</button><button data-page="coverage">数据覆盖</button><button data-page="access">账号与 Codex</button></nav>
   <main>
     <div id="global-error" class="error notice" role="alert" hidden></div>
@@ -45,7 +45,7 @@
         <form id="piece-form" class="panel"><h3>登记单件产品</h3><div class="form-row"><label>所属生产单<select name="order_id" id="piece-order" required></select></label><label>单件编号<input name="piece_label" required maxlength="80" placeholder="例如：10号；同单内唯一"></label></div><label>产品名称<input name="product_name" required maxlength="160" placeholder="例如：西方龙电瓶车"></label><label>单件来源（行号或其他依据）<input name="source_ref" maxlength="300" placeholder="例如：同附件 Sheet1!A8:H8"></label><button class="primary">增加单件产品</button></form>
       </div>
       </details>
-      <div class="production-toolbar sticky-tools"><label>查看生产单<select id="production-filter"><option value="all">全部生产单</option></select></label><p id="production-empty-note" class="small muted"></p></div>
+      <div class="production-toolbar sticky-tools"><label>查看生产单<select id="production-filter"><option value="all">全部生产单</option></select></label><div class="production-search-tools"><label for="production-search">搜索生产单<input id="production-search" type="search" maxlength="160" autocomplete="off" placeholder="单号、标题、业务员、客户等关键词" aria-describedby="production-search-result"></label><button id="production-search-clear" type="button" hidden>清空搜索</button><p id="production-search-result" class="small muted" role="status" aria-live="polite"></p></div><p id="production-empty-note" class="small muted"></p></div>
       <div id="production-orders"></div>
     </section>
     <section data-view="completed" hidden><div class="page-heading sticky-tools"><div><h2>单日已完成</h2><p class="muted">按原消息日期查看业务认可阶段和现场完成反馈；后续待办继续留在工作台。</p></div><div class="export-tools"><label>日期<input type="date" id="completed-date"></label><button id="completed-export-button" class="primary">下载这一天</button></div></div><p class="notice">“可以”“下一步”等只记录被同意的具体阶段；现场“已调整”“已出货”只记录现场反馈。两者均不自动代表整单完工或客户最终验收。</p><p id="completed-count" class="small muted"></p><div id="completed-list"></div></section>

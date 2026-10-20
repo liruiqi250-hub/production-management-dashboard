@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import re
 import threading
 import time
 from http import HTTPStatus
@@ -32,6 +33,13 @@ class DashboardServer(ThreadingHTTPServer):
         from app.production import Production
         self.after_sales = AfterSales(store)
         self.production = Production(store)
+        from app.production_order_intake import ProductionOrderIntake
+        from app.production_documents import ProductionDocuments
+        self.production_intake = ProductionOrderIntake(store)
+        self.production_documents = ProductionDocuments(store)
+        from app.production_printing import ProductionPrinting
+        self.production_printing = ProductionPrinting(store, self.production_documents)
+        self.production_documents.protected_output_ids = self.production_printing.active_output_ids
         self.jobs = Jobs(store.workspace)
         from app.remote_access import RemoteGateway
         self.gateway = RemoteGateway(store)
@@ -43,6 +51,17 @@ class DashboardServer(ThreadingHTTPServer):
         self.attempt_lock = threading.Lock()
         super().__init__(address, Handler)
         self.allowed_hosts = {f"127.0.0.1:{self.server_port}", f"localhost:{self.server_port}", f"{lan_ip}:{self.server_port}"}
+        self.production_printing.start()
+        self.production_documents.start_maintenance()
+
+    def server_close(self):
+        try:
+            if hasattr(self, "production_printing"):
+                self.production_printing.stop()
+            if hasattr(self, "production_documents"):
+                self.production_documents.stop_maintenance()
+        finally:
+            super().server_close()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -85,6 +104,22 @@ class Handler(BaseHTTPRequestHandler):
             return cookies[name].value if name in cookies else ""
         except Exception:
             return ""
+
+    def document_file(self, target, filename, mime, *, inline=False):
+        body = target.read_bytes()
+        self.send_response(200)
+        self.common_headers(mime)
+        disposition = "inline" if inline else "attachment"
+        suffix = Path(filename).suffix
+        ascii_filename = "production-document" + (suffix if re.fullmatch(r"\.[A-Za-z0-9]{1,10}", suffix) else "")
+        self.send_header("Content-Disposition", f'{disposition}; filename="{ascii_filename}"; filename*=UTF-8\'\'' + quote(filename, safe=""))
+        self.send_header("Content-Length", str(len(body)))
+        # 下载客户端兼容：此文件响应明确结束连接，不改全局 HTTP 协议。
+        self.send_header("Connection", "close")
+        self.close_connection = True
+        self.end_headers()
+        self.wfile.write(body)
+        self.wfile.flush()
 
     def auth_redirect(self, location, cookies=()):
         self.send_response(303)
@@ -225,14 +260,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             return self.wfile.write(body)
-        if path in {"/", "/index.html", "/app.js", "/drafts.js", "/draft-forms.js", "/production.js", "/styles.css"}:
+        if path in {"/", "/index.html", "/app.js", "/drafts.js", "/draft-forms.js", "/production.js", "/production-documents.js", "/document-print.js", "/document-print.css", "/styles.css"}:
             name = "index.html" if path == "/" else path.lstrip("/")
             target = ROOT / "web" / name
             if not target.is_file():
                 return self.json({"error": "页面文件未就绪"}, 503)
             body = target.read_bytes()
             self.send_response(200)
-            self.common_headers("text/html; charset=utf-8" if name == "index.html" else "text/css; charset=utf-8" if name == "styles.css" else "text/javascript; charset=utf-8")
+            self.common_headers("text/html; charset=utf-8" if name == "index.html" else "text/css; charset=utf-8" if name.endswith(".css") else "text/javascript; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             return self.wfile.write(body)
@@ -252,7 +287,62 @@ class Handler(BaseHTTPRequestHandler):
         if path in {"/api/after-sales", "/api/v1/after-sales"}:
             return self.json(self.server.after_sales.snapshot())
         if path in {"/api/production", "/api/v1/production"}:
-            return self.json(self.server.production.snapshot())
+            return self.json(self.server.production.snapshot(include_search=True))
+        if path == "/api/production/printing":
+            return self.json(self.server.production_printing.status())
+        print_job_match = re.fullmatch(r"/api/production/print-jobs/([a-f0-9]{32})", path)
+        if print_job_match:
+            try:
+                return self.json(self.server.production_printing.get(print_job_match.group(1), user))
+            except PermissionError as exc:
+                return self.json({"error": str(exc)}, 403)
+            except (KeyError, ValueError) as exc:
+                return self.json({"error": str(exc)}, 404)
+        document_match = re.fullmatch(r"/api/production/orders/([^/]+)/documents", path)
+        if document_match:
+            try:
+                order_id = unquote(document_match.group(1))
+                with self.server.store.connect() as connection:
+                    if not connection.execute("SELECT 1 FROM production_orders WHERE id=?", (order_id,)).fetchone():
+                        return self.json({"error": "生产单不存在"}, 404)
+                detail = self.server.production_intake.details(order_id)
+                detail.update(self.server.production_documents.status(order_id))
+                return self.json(detail)
+            except ValueError as exc:
+                return self.json({"error": str(exc)}, 400)
+        file_match = re.fullmatch(r"/api/production/document-files/([^/]+)", path)
+        page_match = re.fullmatch(r"/api/production/document-files/([^/]+)/pages/([1-9]\d*)\.png", path)
+        print_match = re.fullmatch(r"/api/production/document-files/([^/]+)/print", path)
+        if file_match or page_match or print_match:
+            from app.production_documents import ArtifactsExpired
+            try:
+                query = parse_qs(parsed.query)
+                output_id = unquote((file_match or page_match or print_match).group(1))
+                with self.server.production_documents.hold(output_id):
+                    if page_match:
+                        page = int(page_match.group(2))
+                        if query.get("quality", [""])[0] == "print":
+                            target = self.server.production_documents.preview_page(output_id, page, print_quality=True)
+                        else:
+                            target = self.server.production_documents.preview_page(output_id, page)
+                        return self.document_file(target, f"preview-{page}.png", "image/png", inline=True)
+                    if print_match:
+                        from app.production_print_views import render_print_page
+                        target, _, _ = self.server.production_documents.file(output_id, "pdf")
+                        body = render_print_page(self.server.production_documents._get(output_id), target, query.get("pages", [""])[0])
+                        self.send_response(200)
+                        self.common_headers("text/html; charset=utf-8")
+                        self.send_header("Content-Length", str(len(body)))
+                        self.end_headers()
+                        return self.wfile.write(body)
+                    target, filename, mime = self.server.production_documents.file(output_id, query.get("format", ["xlsx"])[0])
+                    return self.document_file(target, filename, mime, inline=query.get("inline", [""])[0] == "1")
+            except ArtifactsExpired as exc:
+                return self.json({"error": str(exc), "code": exc.code}, 410)
+            except (ValueError, KeyError, FileNotFoundError) as exc:
+                return self.json({"error": str(exc)}, 404)
+            except RuntimeError as exc:
+                return self.json({"error": str(exc)}, 503)
         if path == "/api/jobs/current":
             return self.json(self.server.jobs.status())
         if path == "/api/users":
@@ -386,6 +476,14 @@ class Handler(BaseHTTPRequestHandler):
             user = self.require(write=True, allow_password_change=method == "POST" and path in {"/api/password", "/api/logout"})
             if not user:
                 return
+            if path == "/api/production/print-jobs" and method == "POST":
+                if set(data) - {"output_id", "pages", "copies", "request_id"}:
+                    raise ValueError("打印入口仅接受生成资料、页码、份数和请求标识。")
+                from app.production_documents import ArtifactsExpired
+                try:
+                    return self.json(self.server.production_printing.submit(data.get("output_id"), user, pages=data.get("pages", ""), copies=data.get("copies", 1), request_id=data.get("request_id")), 202)
+                except ArtifactsExpired as exc:
+                    return self.json({"error": str(exc), "code": exc.code}, 410)
             if path == "/api/auth/dingtalk/unbind" and method == "POST":
                 self.server.dingtalk.unbind(user["username"])
                 return self.json({"ok": True}, headers={"Set-Cookie": f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"})
@@ -395,6 +493,16 @@ class Handler(BaseHTTPRequestHandler):
                 if data:
                     raise ValueError("整理入口不接受自定义命令、路径或提示词")
                 return self.json(self.server.jobs.start(user["username"]), 202)
+            generate_match = re.fullmatch(r"/api/production/orders/([^/]+)/documents/generate", path)
+            if generate_match and method == "POST":
+                if set(data) - {"kind"}:
+                    raise ValueError("生成入口只接受资料类型")
+                if not isinstance(data.get("kind"), str) or data["kind"] not in {"labels", "fitter", "product"}:
+                    raise ValueError("资料类型无效")
+                with self.server.store.connect() as connection:
+                    if not connection.execute("SELECT 1 FROM production_orders WHERE id=?", (unquote(generate_match.group(1)),)).fetchone():
+                        return self.json({"error": "生产单不存在"}, 404)
+                return self.json(self.server.production_documents.generate(unquote(generate_match.group(1)), data.get("kind"), user["username"]), 201)
             if path.startswith("/api/after-sales/") and method == "PATCH":
                 if not permission_profile(user, self.server.store.workspace)['can_write']:
                     return self.json({"error": "该账号仅有查看权限"}, 403)
@@ -468,7 +576,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.store.revoke_api_token(user["username"], path[len("/api/tokens/"):])
                 return self.json({"ok": True})
             return self.json({"error": "接口不存在"}, 404)
-        except ItemPermissionError as exc:
+        except (ItemPermissionError, PermissionError) as exc:
             return self.json({"error": str(exc)}, 403)
         except (ValueError, KeyError, TypeError) as exc:
             return self.json({"error": str(exc)}, 400)

@@ -1,4 +1,12 @@
-> V0.3.28 已获用户授权发布至私有 GitHub；请从对应 Release 下载完整运行包及 SHA256 校验文件。
+> 当前版本 V0.3.31：生产单关键词搜索、生成资料7天未使用自动清理、打印/云打印入口与本机固定打印队列。源码与完整运行包使用同版本标签，下载见 [V0.3.31 发布页](https://github.com/liruiqi250-hub/production-management-dashboard/releases/tag/v0.3.31)。
+
+## 生产资料生成与预览（V0.3.29）
+
+进入“生产进度”，展开生产单，可查看“生产单详情”并生成标签、钳工质检表和产品质检表。生成后页面显示实际打印预览，支持上一页/下一页，并可下载同批次Excel和PDF。未知字段、跟单员、检验结果和签字留空；规格分配冲突只说明，未明确的单体尺寸空白。按“组”的产品每组一份，不推断组内实物。
+
+每日沿用既有整理任务，从唯一核验的“生产资料群”生产单附件自动建档；相同原件按SHA去重，同单新版保留历史，不覆盖已有人工工序和交付。每轮回执位于任务目录production_order_intake.json。手动“立即整理”使用同一流程，不重复启动活动任务。
+
+本机标准空白模板在private/production_templates，原件在private/production_order_sources，可再生生成文件在private/production_document_outputs，生成历史保存在本机业务数据库，全部仅存本机。Excel生成及PDF图片预览使用production-documents.lock.json固定依赖；实际打印PDF转换需要本机安装LibreOffice。新部署需单独导入正式模板，不携带客户原件或原电脑的私有模板。
 
 # 彩灯看板 V0.3.28
 

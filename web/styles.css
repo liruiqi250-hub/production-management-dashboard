@@ -28,6 +28,27 @@
 .production-toolbar p{max-width:68ch}
 .production-order{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0 18px;margin-bottom:12px}
 .production-order[open]{border-color:var(--brand)}
+.production-documents{margin:0 0 18px 28px;padding:12px 0 16px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.production-document-detail>summary{padding:5px 0 10px;color:var(--brand);font-weight:600;cursor:pointer;min-height:38px}
+.document-toolbar,.document-downloads,.document-pager,.document-preview-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.document-toolbar{margin-top:8px}.document-toolbar button,.document-download{min-height:44px}
+.document-help{margin-top:9px;max-width:72ch}.document-generation-status{margin-top:7px;overflow-wrap:anywhere}
+.document-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px;margin:10px 0 16px}
+.document-fields>div{min-width:0}.document-fields dt{font-size:12px;color:var(--muted)}
+.document-fields dd{margin:3px 0 0;min-height:23px;white-space:pre-wrap;overflow-wrap:anywhere}
+.document-source-name{overflow-wrap:anywhere}.document-notes{margin:10px 0 14px;font-size:12px}
+.document-notes>summary{cursor:pointer;color:var(--brand);padding:5px 0;min-height:34px}
+.document-notes ul{padding-left:22px;margin:7px 0}.document-notes li{margin:5px 0;overflow-wrap:anywhere}
+.document-products-heading{margin:18px 0 5px}.document-product{border-top:1px solid var(--line);padding:7px 0}
+.document-product>summary{display:flex;align-items:baseline;justify-content:space-between;gap:12px;cursor:pointer;padding:5px 0;min-height:38px}
+.document-product>summary strong{font-size:13px;white-space:pre-line;overflow-wrap:anywhere}.document-product>summary span{flex-shrink:0}
+.document-preview{margin-top:20px;min-width:0}.document-preview-heading{justify-content:space-between}.document-preview-heading h4{margin:0}
+.document-download{display:inline-flex;align-items:center;padding:7px 12px;border:1px solid var(--line);border-radius:7px;color:var(--brand);text-decoration:none;background:var(--panel)}
+.document-download:hover{background:var(--brandbg)}.document-download:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.document-download-status{overflow-wrap:anywhere}.document-pager .document-download{flex:0 0 auto;white-space:nowrap}
+.document-pager{justify-content:center;margin:16px 0 8px}.document-pager button{min-height:44px}.document-page-label{min-width:95px;text-align:center;font-variant-numeric:tabular-nums}
+.document-page-image{display:block;max-width:100%;width:100%;height:auto;background:var(--panel);border:1px solid var(--line);margin-top:8px}
+@media(max-width:780px){.production-documents{margin-left:0}.document-fields{grid-template-columns:minmax(0,1fr);gap:9px}.document-toolbar{gap:6px}.document-toolbar button{flex:1 1 135px;padding:8px}.document-preview-heading{align-items:flex-start}.document-downloads{width:100%}.document-download{flex:1;justify-content:center}.document-page-label{min-width:80px}}
 .production-order-summary,.production-piece-summary{display:flex;align-items:center;gap:9px 16px;flex-wrap:wrap;padding:14px 0;list-style:none}
 .production-order-summary::-webkit-details-marker,.production-piece-summary::-webkit-details-marker{display:none}
 .production-order-summary::before,.production-piece-summary::before{content:'›';display:inline-block;font-size:21px;line-height:1;color:var(--brand);transition:transform .18s ease}
@@ -469,4 +490,40 @@ html { scroll-padding-top: calc(var(--page-scroll-offset) + var(--sticky-tools-h
 @media (max-width: 780px) {
   .filters.followup-filters { padding: 12px; gap: 8px 12px; }
   .detail-actions>button { min-height: 44px; }
+}
+
+/* 生产资料打印设置：沿用看板的表单、边界与中文排版。 */
+.document-print-panel { margin: 12px 0 20px; padding: 16px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.document-print-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.document-print-heading h4 { margin: 0; font-size: 14px; }
+.document-print-close { min-height: 36px; padding: 5px 10px; font-size: 12px; }
+.document-print-target { margin: 0 0 14px; max-width: 75ch; overflow-wrap: anywhere; }
+.document-print-fields { display: grid; grid-template-columns: minmax(150px,1fr) minmax(180px,1.4fr) minmax(84px,.5fr); align-items: end; gap: 12px 16px; max-width: 720px; }
+.document-print-fields>label { display: grid; gap: 6px; min-width: 0; }
+.document-print-fields input, .document-print-fields select { width: 100%; min-width: 0; min-height: 44px; }
+.document-print-summary { margin: 14px 0 4px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.document-print-hint { margin: 0 0 14px; max-width: 75ch; }
+.document-print-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.document-print-actions button { min-height: 44px; }
+.document-print-link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 16px; border: 1px solid var(--brand); border-radius: 8px; background: var(--brand); color: #ffffff; font-size: inherit; font-weight: 500; text-decoration: none; cursor: pointer; }
+.document-print-link:hover { background: #204e87; border-color: #204e87; }
+.document-print-link[aria-disabled="true"] { opacity: .55; cursor: default; }
+.document-print-status { min-height: 20px; margin: 8px 0 0; max-width: 75ch; overflow-wrap: anywhere; }
+.document-retention-note { margin: 5px 0 9px; max-width: 75ch; }
+.document-cleaned-note { padding: 12px 0; color: var(--muted); overflow-wrap: anywhere; }
+.production-search-tools { display: flex; flex: 1 1 320px; align-items: end; gap: 8px 12px; flex-wrap: wrap; min-width: 240px; max-width: 560px; }
+.production-toolbar .production-search-tools label { flex: 1 1 240px; min-width: 0; max-width: 100%; }
+.production-search-tools input { width: 100%; min-width: 0; }
+.production-search-tools>button { flex: 0 0 auto; min-height: 44px; }
+.production-search-tools>p { flex-basis: 100%; min-height: 20px; margin: 0; overflow-wrap: anywhere; }
+@media (min-width: 781px) { .production-toolbar>label { align-self: flex-start; } }
+@media (max-width: 780px) {
+  .document-downloads { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; }
+  .document-downloads .document-download { min-width: 0; padding-inline: 8px; }
+  .document-print-fields { grid-template-columns: minmax(0,1fr); gap: 10px; }
+  .document-print-heading { align-items: flex-start; }
+  .document-print-close { flex: 0 0 auto; }
+  .document-print-actions>button, .document-print-actions>.document-print-link { flex: 1 1 180px; }
+  .production-search-tools { flex-basis: 100%; width: 100%; min-width: 0; max-width: none; }
+  .production-toolbar .production-search-tools label { flex-basis: calc(100% - 90px); min-width: 0; }
 }

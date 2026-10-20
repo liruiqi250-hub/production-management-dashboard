@@ -364,6 +364,15 @@ def run_job(root, job_id):
                 manifests.append(check_manifest(target / "collection_manifest_V0.1.3.json", expected))
             from app.after_sales import AfterSales
             store = Store(root)
+            # 原单建档使用固定规则和生产资料群白名单，独立于后续AI消息分析。
+            from app.production_order_intake import ProductionOrderIntake
+            try:
+                order_intake = ProductionOrderIntake(store).ingest_manifest(manifests[0])
+            except Exception as exc:
+                order_intake = {"created": 0, "imported": 0, "duplicates": 0, "pieces_created": 0,
+                                "errors": [{"message": str(exc) if isinstance(exc, ValueError) else "生产单建档异常，请检查本机日志"}]}
+            write_json(folder / "production_order_intake.json", order_intake)
+            stage("collecting", "生产资料群原单建档已执行，正在准备消息分析", production_order_intake=order_intake)
             sales = AfterSales(store)
             previous = {"production": store.snapshot(), "after_sales": sales.snapshot()}
             write_json(folder / "previous.json", previous)
@@ -455,10 +464,12 @@ def run_job(root, job_id):
             from app.dingtalk_notifications import completed as notify_completed
             notification = notify_completed(store, published, job_id)
             write_json(folder / "notification_result.json", notification)
-            stage("completed", "生产、售后、阶段复核和日报/周报已更新", finished_at=now(), production_items=len(snapshot["items"]), after_sales_items=len(ledger["cases"]), stage_closed=len(stage_review_result["closed"]), notifications=notification)
+            intake_note = "；生产单附件有失败记录，请查看建档详情" if order_intake.get("errors") else ""
+            stage("completed", "生产、售后、阶段复核和日报/周报已更新" + intake_note, finished_at=now(), production_items=len(snapshot["items"]), after_sales_items=len(ledger["cases"]), stage_closed=len(stage_review_result["closed"]), notifications=notification)
     except Exception as exc:
         message = str(exc) if isinstance(exc, ValueError) else "后台执行异常，请查看本机任务日志"
-        stage("partial" if imported else "failed", message + ("；数据已导入，报表归档待重试" if imported else "；上次正式台账保留"), finished_at=now())
+        source_note = "；本轮已建档的生产单原件及逐件档案保留" if state.get("production_order_intake", {}).get("imported") else ""
+        stage("partial" if imported else "failed", message + ("；数据已导入，报表归档待重试" if imported else "；上次生产及售后消息台账保留") + source_note, finished_at=now())
         from app.notification_cards import notify_failure
         notify_failure(Store(root), Jobs(root).status())
         return 1

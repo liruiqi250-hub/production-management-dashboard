@@ -56,13 +56,24 @@ class Production:
                 if "source_ref" not in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN source_ref TEXT NOT NULL DEFAULT ''")
 
-    def snapshot(self):
+    def snapshot(self, *, include_search=False):
         with self.store.connect() as conn:
             orders = [dict(r) for r in conn.execute("SELECT * FROM production_orders ORDER BY created_at DESC,rowid DESC")]
             pieces = [dict(r) for r in conn.execute("SELECT * FROM production_pieces ORDER BY created_at,rowid")]
             stages = [dict(r) for r in conn.execute("SELECT * FROM production_stages")]
             links = [dict(r) for r in conn.execute("SELECT item_type,item_id,piece_id FROM production_links")]
             updates = [dict(r) for r in conn.execute("SELECT * FROM production_updates ORDER BY id DESC")]
+            document_search = {}
+            if include_search and conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='production_order_documents'").fetchone():
+                for row in conn.execute("SELECT order_id,record_json FROM production_order_documents ORDER BY created_at DESC,rowid DESC"):
+                    if row["order_id"] in document_search:
+                        continue
+                    try:
+                        document = json.loads(row["record_json"])
+                        fields = document.get("fields", {})
+                        document_search[row["order_id"]] = [str(document.get("filename") or "")] + [str(fields.get(key) or "") for key in ("buyer", "order_no", "business_contact", "followup")]
+                    except (ValueError, TypeError, AttributeError):
+                        document_search[row["order_id"]] = []
         stage_map = {(r["piece_id"], r["stage"]): r for r in stages}
         for piece in pieces:
             piece["stages"] = [stage_map.get((piece["id"], name), {"stage": name, "state": "未核对", "note": "", "basis": "", "source_ref": "", "updated_at": None, "updated_by": None}) for name in STAGES]
@@ -70,6 +81,8 @@ class Production:
             piece["updates"] = [r for r in updates if r["piece_id"] == piece["id"]]
         for order in orders:
             order["pieces"] = [piece for piece in pieces if piece["order_id"] == order["id"]]
+            if include_search:
+                order["search_terms"] = document_search.get(order["id"], [])
         return {"orders": orders, "stages": STAGES, "states": STATES, "delivery_states": DELIVERY,
                 "policy": "业务员同意只使明确对应的单件与工序记为合格；其它工序、交付和售后各自记录。群聊候选不自动修改人工进度。"}
 

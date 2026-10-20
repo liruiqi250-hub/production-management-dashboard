@@ -97,8 +97,9 @@ class PortableBundleTests(unittest.TestCase):
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-        with patch.object(bundle, "_tracked", return_value=[name for name in files if not name.startswith("private/")]):
+        with patch.object(bundle, "_tracked", return_value=[name for name in files if not name.startswith("private/")]), patch('scripts.build_production_document_runtime.build_production_document_runtime') as document_runtime:
             result = bundle.build_bundle(self.root, offline=True)
+        document_runtime.assert_called_once()
         archive = Path(result["archive"])
         self.assertEqual(result["sha256"], bundle.sha256_file(archive))
         prefix = "production-dashboard-V0.2.6-windows-x64/"

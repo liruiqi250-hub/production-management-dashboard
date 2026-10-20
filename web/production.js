@@ -107,12 +107,21 @@ function productionPieceSummary(piece){
  }
  summary.append(checkpoints);return summary;
 }
+function normalizeProductionSearch(value){return String(value??'').normalize('NFKC').toLocaleLowerCase().replace(/\s+/gu,'');}
+function matchesProductionOrder(order,query){
+ const tokens=String(query??'').trim().split(/\s+/u).map(normalizeProductionSearch).filter(Boolean);
+ if(!tokens.length)return true;
+ const fields=[order.order_no,order.title,order.business_contact,order.source_ref,...(order.search_terms||[]),...(order.pieces||[]).map(piece=>piece.product_name)];
+ const text=fields.map(normalizeProductionSearch).join('\n');
+ return tokens.every(token=>text.includes(token));
+}
+function filteredProductionOrders(orders,selected,query){return orders.filter(order=>(selected==='all'||order.id===selected)&&matchesProductionOrder(order,query));}
 function renderProduction(openId){
  const data=state.production;if(!data)return;
  const opened=rememberDraftDetails($('production-orders'));
  const orders=data.orders||[];
  $('production-admin').hidden=state.user?.role!=='admin';
- $('production-count').textContent=`${orders.length} 张生产单 · ${orders.reduce((sum,order)=>sum+order.pieces.length,0)} 件产品`;
+ $('production-count').textContent=`${orders.length} 张生产单 · ${orders.reduce((sum,order)=>sum+order.pieces.length,0)} 条产品记录`;
  const orderSelect=clear($('piece-order'));
  orderSelect.append(node('option',{value:''},orders.length?'选择生产单':'请先建立生产单'));
  for(const order of orders)orderSelect.append(node('option',{value:order.id},`${order.order_no||'未编号'} · ${order.title}`));
@@ -121,14 +130,21 @@ function renderProduction(openId){
  clear(filter).append(node('option',{value:'all'},'全部生产单'));
  for(const order of orders)filter.append(node('option',{value:order.id},`${order.order_no||'未编号'} · ${order.title}`));
  filter.value=orders.some(order=>order.id===previous)?previous:'all';
+ const search=$('production-search'),target=openId?orders.find(order=>order.pieces.some(piece=>piece.id===openId)):null;
+ if(target){if(filter.value!=='all'&&filter.value!==target.id)filter.value=target.id;if(!matchesProductionOrder(target,search.value))search.value='';}
+ const matching=filteredProductionOrders(orders,filter.value,search.value);
+ $('production-search-clear').hidden=!search.value;
+ $('production-search-result').textContent=search.value.trim()||filter.value!=='all'?`显示 ${matching.length} / ${orders.length} 张生产单 · ${matching.reduce((sum,order)=>sum+order.pieces.length,0)} 条产品记录`:'';
  $('production-empty-note').textContent=orders.length?'工序状态由授权人员逐件保存，修改历史保留在单件详情。未核对表示尚无人工核对结论，不代表未开始。':'目前没有建立生产单。历史聊天事项尚未逐件归档，不应据此推定生产为零。';
  const list=clear($('production-orders'));
- for(const order of orders.filter(order=>filter.value==='all'||filter.value===order.id)){
+ if(orders.length&&!matching.length)list.append(node('p',{class:'empty'},'没有匹配的生产单。可更换关键词、清空搜索或选择全部生产单。'));
+ for(const order of matching){
   const wrapper=node('details',{class:'production-order','data-order-id':order.id});wrapper.open=filter.value===order.id||orders.length===1||order.pieces.some(piece=>piece.id===openId);
   const summary=node('summary',{class:'production-order-summary'});
-  summary.append(node('strong',{},order.order_no||'单号待补'),node('span',{},order.title),node('span',{class:'small muted'},`${order.pieces.length} 件 · 收单 ${order.received_on||'待补日期'}`));
+  summary.append(node('strong',{},order.order_no||'单号待补'),node('span',{},order.title),node('span',{class:'small muted'},`${order.pieces.length} 条记录 · 收单 ${order.received_on||'待补日期'}`));
   wrapper.append(summary);
   const meta=node('p',{class:'small muted'},`业务对接：${order.business_contact||'待补'} · 建档 ${textDate(order.created_at)}${order.source_ref?' · 来源 '+order.source_ref:''}`);wrapper.append(meta);
+  if(typeof productionDocumentPanel==='function')wrapper.append(productionDocumentPanel(order));
   if(state.user?.role==='admin')wrapper.append(masterEditor('order',order));
   if(!order.pieces.length)wrapper.append(node('p',{class:'empty'},'这张生产单尚未登记单件产品。'));
   for(const piece of order.pieces){
@@ -148,6 +164,12 @@ function renderProduction(openId){
  restoreDraftDetails(list,opened);
 }
 $('production-filter').addEventListener('change',()=>renderProduction());
+let productionSearchComposing=false,productionSearchTimer=null;
+function searchProductionOrders(){clearTimeout(productionSearchTimer);productionSearchTimer=setTimeout(()=>renderProduction(),150);}
+$('production-search').addEventListener('compositionstart',()=>{productionSearchComposing=true;});
+$('production-search').addEventListener('compositionend',()=>{productionSearchComposing=false;searchProductionOrders();});
+$('production-search').addEventListener('input',event=>{if(!productionSearchComposing&&!event.isComposing)searchProductionOrders();});
+$('production-search-clear').addEventListener('click',()=>{clearTimeout(productionSearchTimer);$('production-search').value='';renderProduction();$('production-search').focus();});
 $('order-form').addEventListener('submit',async event=>{
  event.preventDefault();const button=event.target.querySelector('button');button.disabled=true;
  try{const data=Object.fromEntries(new FormData(event.target));await api('/api/production/orders',{method:'POST',body:data});event.target.reset();await reloadProduction();showError('');}
