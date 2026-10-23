@@ -12,6 +12,7 @@ from pathlib import Path
 
 from app.server import DashboardServer
 from app.store import Store, password_hash
+from tests.test_store_server import ResponseHeaders
 
 
 class PasswordStoreTests(unittest.TestCase):
@@ -186,7 +187,7 @@ class PasswordHttpTests(unittest.TestCase):
         try:
             connection.request(method, path, data, headers)
             response = connection.getresponse()
-            return response.status, response.read(), dict(response.getheaders())
+            return response.status, response.read(), ResponseHeaders(response.getheaders())
         finally:
             connection.close()
 
@@ -195,7 +196,7 @@ class PasswordHttpTests(unittest.TestCase):
                                              {"username": username, "password": password or self.password})
         self.assertEqual(status, 200)
         result = json.loads(body)
-        return result, {"Cookie": headers["Set-Cookie"].split(";", 1)[0], "X-CSRF-Token": result["csrf"]}
+        return result, {"Cookie": "dino_session=" + headers.cookies["dino_session"].value, "X-CSRF-Token": result["csrf"]}
 
     def assert_pending_denied(self, method, path, data, session):
         status, body, _ = self.request(method, path, data, session)

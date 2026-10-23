@@ -1,4 +1,4 @@
-"""固定办公群及曾悦日报；正文、接收者、发件箱与凭据只保存在本机。"""
+"""固定通道日报及个人专报；正文、接收者、发件箱与凭据只保存在本机。"""
 from __future__ import annotations
 
 import argparse
@@ -113,7 +113,10 @@ def summaries(snapshot, origin, at):
         leader.append(f'另 {len(leaders)-8} 项见看板重点清单。')
     for lines in (group, leader):
         lines.extend([scope_note, '三天计时沿用工厂规则：周末计入，仅扣已核验放假日。', '打开看板：' + origin + '/'])
-    return {'group': '\n'.join(group), 'leader': '\n'.join(leader)}
+    operator = list(group)
+    operator[0] = f'李睿琪 · 生产与售后日报 · {day}'
+    return {'group': '\n'.join(group), 'leader': '\n'.join(leader),
+            'operator-daily': '\n'.join(operator)}
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -172,7 +175,7 @@ class RobotClient:
             path = '/v1.0/robot/oToMessages/batchSend'
         response = self._post(path, body, token=self.token)
         if response.get('invalidStaffIdList') or response.get('flowControlledStaffIdList'):
-            raise Rejected('曾悦账号未接受消息，请核对企业身份或发送限制')
+            raise Rejected('收件账号未接受消息，请核对企业身份或发送限制')
         key = response.get('processQueryKey')
         if not isinstance(key, str) or not key:
             raise OSError('消息回执待核验，禁止自动重复发送')
@@ -260,7 +263,7 @@ class Notifications:
             if at.timetz().replace(tzinfo=None) > time(16, 30):
                 messages = {k: '【延迟更新】\n' + v for k, v in messages.items()}
         else:
-            messages = {k: '【推送连通测试】生产管理看板\n此消息仅验证固定接收通道，不是今日生产日报。\n打开看板：' + origin + '/' for k in ('group', 'leader')}
+            messages = {k: '【推送连通测试】生产管理看板\n此消息仅验证固定接收通道，不是今日生产日报。\n打开看板：' + origin + '/' for k in ('group', 'leader', 'operator-daily')}
         messages = {key: text for key, text in messages.items() if key in value.get('channels', ['group', 'leader'])}
         card_texts = dict(messages)
         if not test and value.get('presentation') == 'card' and value.get('cards_approved') is True:
@@ -268,7 +271,12 @@ class Notifications:
             report_id = freeze_report(self.store, snapshot, day, '日报')
             messages = {channel: card_body(text, origin, report_id) for channel, text in messages.items()}
         for channel, body in messages.items():
-            target = value['group']['open_conversation_id'] if channel == 'group' else value['leader']['user_id']
+            if channel == 'group':
+                target = value['group']['open_conversation_id']
+            elif channel == 'leader':
+                target = value['leader']['user_id']
+            else:
+                target = value['operator_daily']['user_id']
             key = hashlib.sha256(f'{day}|{channel}|{target}|{"test" if test else "daily"}'.encode()).hexdigest()
             if (not test and value.get('images_approved') is True and body.startswith('{"notification_card":')):
                 with self.connect() as c:
@@ -280,7 +288,8 @@ class Notifications:
             self.send_one(key, day, channel, target, body, job_id, credentials, value['robot_code'], retry_failed=retry_failed)
         return {'state': 'checked', 'channels': self.status(day),
                 'enabled_channels': value.get('channels', ['group', 'leader']),
-                'disabled_channels': [key for key in ['group', 'leader'] if key not in value.get('channels', ['group', 'leader'])],
+                'disabled_channels': [key for key in ['group', 'leader', *(['operator-daily'] if 'operator_daily' in value else [])]
+                                      if key not in value.get('channels', ['group', 'leader'])],
                 'note': 'accepted表示平台接受，不等于已读；unknown/sending禁止自动重发'}
 
     def send_one(self, key, day, channel, target, body, job_id, credentials, robot_code, *, retry_failed=False):

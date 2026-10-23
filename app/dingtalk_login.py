@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import hashlib
+import hmac
 import ipaddress
 import json
 import re
@@ -18,6 +19,10 @@ from app.store import TZ, digest, now
 
 OAUTH_COOKIE = "dino_ding_oauth"
 BIND_COOKIE = "dino_ding_binding"
+HANDOFF_COOKIE = "dino_ding_handoff"
+HANDOFF_COOKIE_CLEAR = HANDOFF_COOKIE + "=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"
+HANDOFF_SECONDS = 90
+_HANDOFF_DOMAIN = b"dayang.dingtalk.oauth-handoff.v1\0"
 SCOPE = "openid corpid Contact.User.Read"
 
 
@@ -38,6 +43,10 @@ class DingTalkLogin:
         self.config = None
         self._app_token = None
         self._token_lock = threading.Lock()
+        # 仅用于本进程内OAuth回调到前端的短期交接，不能作为新身份或会话。
+        self._handoff_key = secrets.token_bytes(32)
+        self._handoff_lock = threading.Lock()
+        self._handoff_consumed = {}
         self.public_origin = public_origin
         config_path = store.private / "dingtalk" / (store.path.stem + ".json")
         if not config_path.exists():
@@ -95,6 +104,45 @@ class DingTalkLogin:
                     "SELECT 1 FROM dingtalk_identities WHERE corp_id=? AND username=?",
                     (self.config["corp_id"], username)).fetchone())
         return result
+
+    def issue_oauth_handoff(self, kind, credential):
+        if (not self.enabled or kind not in {"session", "binding"}
+                or not isinstance(credential, str) or not 1 <= len(credential) <= 4096):
+            raise LoginError("本次钉钉登录交接已失效，请重新登录")
+        payload = f"v1.{int(time.time())}.{kind}.{digest(credential)}"
+        signature = hmac.new(self._handoff_key, _HANDOFF_DOMAIN + payload.encode("ascii"), hashlib.sha256).hexdigest()
+        return payload + "." + signature
+
+    def consume_oauth_handoff(self, ticket, *, session="", pending=""):
+        """仅认可本进程刚完成的OAuth结果，并重新检查对应凭据仍然有效。"""
+        if not self.enabled or not isinstance(ticket, str) or not 1 <= len(ticket) <= 256:
+            return ""
+        match = re.fullmatch(r"(v1\.([0-9]{1,12})\.(session|binding)\.([0-9a-f]{64}))\.([0-9a-f]{64})", ticket)
+        if not match:
+            return ""
+        payload, timestamp, kind, credential_hash, signature = match.groups()
+        current = int(time.time())
+        issued = int(timestamp)
+        if not 0 <= current - issued <= HANDOFF_SECONDS:
+            return ""
+        expected = hmac.new(self._handoff_key, _HANDOFF_DOMAIN + payload.encode("ascii"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, signature):
+            return ""
+        credential = session if kind == "session" else pending
+        if (not isinstance(credential, str) or not 1 <= len(credential) <= 4096
+                or not hmac.compare_digest(digest(credential), credential_hash)):
+            return ""
+        if kind == "session":
+            if not self.store.authenticate(credential):
+                return ""
+        elif not self.status(credential)["binding_pending"]:
+            return ""
+        with self._handoff_lock:
+            self._handoff_consumed = {key: expiry for key, expiry in self._handoff_consumed.items() if expiry >= current}
+            if signature in self._handoff_consumed or len(self._handoff_consumed) >= 1000:
+                return ""
+            self._handoff_consumed[signature] = issued + HANDOFF_SECONDS
+        return kind
 
     def start(self, *, public=False):
         if not self.enabled:

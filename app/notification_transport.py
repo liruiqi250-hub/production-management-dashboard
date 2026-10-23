@@ -54,6 +54,13 @@ def independent_config(store, config, origin):
         leader.update(routes['zengyue'])
         channels.append('leader')
     value['leader'] = leader
+    operator = dict(value.get('operator_daily', {}))
+    if operator.get('enabled') is True:
+        if operator.get('username') != 'liruiqi':
+            raise ValueError('本人日报只能发送给李睿琪')
+        operator.update(routes['liruiqi'])
+        value['operator_daily'] = operator
+        channels.append('operator-daily')
     group = value.get('group', {})
     if group.get('enabled') is True:
         if (group.get('name') != '办公群' or group.get('verified') is not True

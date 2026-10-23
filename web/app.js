@@ -260,6 +260,7 @@ $('manual-item-form').addEventListener('submit',async e=>{e.preventDefault();try
 
 let dingtalkInfo={enabled:false};
 async function loadDingTalk(){
+ $('dingtalk-login').textContent='使用钉钉登录';
  try{
   const response=await fetch('/api/auth/dingtalk',{credentials:'same-origin'});
   if(!response.ok)throw new Error('钉钉入口暂不可用');
@@ -292,8 +293,32 @@ $('dingtalk-bind').addEventListener('click',startDingTalk);
 $('dingtalk-bind-confirm').addEventListener('change',()=>{$('login-form').querySelector('button[type=submit]').textContent=$('dingtalk-bind-confirm').checked?'登录并绑定钉钉':'仅用账号登录';});
 $('dingtalk-unbind').addEventListener('click',async()=>{const button=$('dingtalk-unbind');button.disabled=true;try{await api('/api/auth/dingtalk/unbind',{method:'POST',body:{}});showLogin();await loadDingTalk();$('login-error').textContent='已解绑钉钉，请使用原账号重新登录。';}catch(error){showError(error.message);}finally{button.disabled=false;}});
 
+function dingtalkDiagnosticCode(error){
+ for(const value of [error?.errorCode,error?.error]){
+  if((typeof value==='number'||typeof value==='string')&&/^\d{1,6}$/.test(String(value)))return String(value);
+ }
+ // 原生组件内容可能含身份或临时凭据，只提取受限的 ERROR 数字，不显示原文。
+ for(const value of [typeof error==='string'?error:null,error?.message,error?.errorMessage,error?.error]){
+  if(typeof value!=='string')continue;
+  const match=value.slice(0,1024).match(/(?:^|[^A-Za-z0-9])ERROR[ \t]{0,4}(?:[:=][ \t]{0,4})?(\d{1,6})(?![A-Za-z0-9])/i);
+  if(match)return match[1];
+ }
+ return '';
+}
+function dingtalkAutoLoginError(reason,error){
+ const messages={unavailable:'当前钉钉客户端无法自动免登',unsupported:'当前钉钉客户端暂不支持自动免登',timeout:'钉钉自动免登超时',component:'钉钉自动免登组件未能加载'};
+ const diagnostic=dingtalkDiagnosticCode(error);
+ return new Error((messages[reason]||messages.unavailable)+(diagnostic?'（诊断码 '+diagnostic+'）':'')+'。请点击下方“改用钉钉授权登录”，或使用原账号登录。');
+}
 async function workbenchLogin(){
  if(!dingtalkInfo.enabled||!/DingTalk/i.test(navigator.userAgent))return false;
+ // handoff 仅由服务端校验短期 HttpOnly 票据后提供，地址栏参数不构成身份依据。
+ // OAuth 已确认当前身份时继续既有会话或绑定，不能再次发起原生免登清掉它。
+ if(dingtalkInfo.oauth_handoff==='session')return false;
+ if(dingtalkInfo.oauth_handoff==='binding'&&dingtalkInfo.binding_pending===true){
+  showLogin();$('dingtalk-binding').hidden=false;$('dingtalk-bind-confirm').checked=false;$('login-form').querySelector('button[type=submit]').textContent='仅用账号登录';
+  $('dingtalk-auto-screen').hidden=true;$('login-error').textContent='';return true;
+ }
  // 先确认当前端内身份，再读取业务数据，避免沿用上一个钉钉使用人的旧会话。
  $('login-screen').hidden=true;$('application').hidden=true;$('dingtalk-auto-screen').hidden=false;
  try{
@@ -302,16 +327,17 @@ async function workbenchLogin(){
   if(!start.ok)throw new Error('钉钉登录暂不可用，请使用原账号登录。');
   const challenge=await start.json();
   if(!window.DinoDingTalk)await new Promise((resolve,reject)=>{
-   const script=document.createElement('script');script.src='/vendor/dingtalk-workbench.js?v=0.3.31';
+   const script=document.createElement('script');script.src='/vendor/dingtalk-workbench.js?v=0.3.32';
    let settled=false;const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);error?reject(error):resolve();};
-   const timer=setTimeout(()=>finish(new Error('钉钉组件加载超时，请重新打开工作台应用或使用原账号登录。')),8000);
-   script.onload=()=>finish();script.onerror=()=>finish(new Error('钉钉组件未能加载，请使用原账号登录。'));document.head.append(script);
+   const timer=setTimeout(()=>finish(dingtalkAutoLoginError('timeout')),8000);
+   script.onload=()=>finish();script.onerror=()=>finish(dingtalkAutoLoginError('component'));document.head.append(script);
   });
+  if(typeof window.DinoDingTalk?.requestAuthCode!=='function')throw dingtalkAutoLoginError('unsupported');
   const result=await new Promise((resolve,reject)=>{
-   const timer=setTimeout(()=>reject(new Error('钉钉身份识别超时，请重新打开工作台应用或使用原账号登录。')),10000);
-   Promise.resolve().then(()=>window.DinoDingTalk.requestAuthCode(challenge.corpId)).then(v=>{clearTimeout(timer);resolve(v);},()=>{clearTimeout(timer);reject(new Error('未能确认钉钉身份，请从公司钉钉工作台重新打开，或使用原账号登录。'));});
+   const timer=setTimeout(()=>reject(dingtalkAutoLoginError('timeout')),10000);
+   Promise.resolve().then(()=>window.DinoDingTalk.requestAuthCode(challenge.corpId)).then(v=>{clearTimeout(timer);resolve(v);},error=>{clearTimeout(timer);reject(dingtalkAutoLoginError('unavailable',error));});
   });
-  if(!result||typeof result.code!=='string'||!result.code)throw new Error('未能取得钉钉身份，请使用原账号登录。');
+  if(!result||typeof result.code!=='string'||!result.code)throw dingtalkAutoLoginError('unavailable');
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
   let response;try{response=await fetch('/api/auth/dingtalk/workbench/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({nonce:challenge.nonce,code:result.code}),signal:controller.signal});}finally{clearTimeout(timer);}
   const value=await response.json();if(!response.ok)throw new Error(value.error||'钉钉识别未完成，请使用原账号登录。');
@@ -320,7 +346,8 @@ async function workbenchLogin(){
   await load();return true;
  }catch(error){
   showLogin();$('dingtalk-binding').hidden=true;$('dingtalk-bind-confirm').checked=false;$('login-form').querySelector('button[type=submit]').textContent='登录看板';
-  $('login-error').textContent=error.name==='AbortError'?'钉钉登录请求超时，请重新打开工作台应用或使用原账号登录。':error.message;
+  $('dingtalk-login').textContent='改用钉钉授权登录';
+  $('login-error').textContent=error.name==='AbortError'?dingtalkAutoLoginError('timeout').message:error.message;
   return true;
  }finally{$('dingtalk-auto-screen').hidden=true;}
 }

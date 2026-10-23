@@ -8,12 +8,23 @@ import tempfile
 import threading
 import unittest
 from datetime import datetime, timedelta
+from http.cookies import SimpleCookie
 from unittest.mock import patch
 
 from app.normalize import MEDIA_FIELDS, SOURCE_GROUPS
 from app.reports import build_report
 from app.server import DashboardServer
 from app.store import Store, TZ, digest, password_hash
+
+
+class ResponseHeaders(dict):
+    """保留既有dict读取接口，并按名称解析全部独立Set-Cookie响应头。"""
+    def __init__(self, pairs):
+        super().__init__(pairs)
+        self.cookies = SimpleCookie()
+        for name, value in pairs:
+            if name.lower() == "set-cookie":
+                self.cookies.load(value)
 
 
 def synthetic_snapshot():
@@ -78,7 +89,7 @@ class StoreServerTests(unittest.TestCase):
         try:
             connection.request(method, path, data, headers)
             response = connection.getresponse()
-            return response.status, response.read(), dict(response.getheaders())
+            return response.status, response.read(), ResponseHeaders(response.getheaders())
         finally:
             connection.close()
 
@@ -86,7 +97,7 @@ class StoreServerTests(unittest.TestCase):
         status, body, headers = self.request("POST", "/api/login", {"username": username, "password": self.password})
         self.assertEqual(status, 200)
         result = json.loads(body)
-        return {"Cookie": headers["Set-Cookie"].split(";", 1)[0], "X-CSRF-Token": result["csrf"]}
+        return {"Cookie": "dino_session=" + headers.cookies["dino_session"].value, "X-CSRF-Token": result["csrf"]}
 
     def token(self, headers):
         status, body, _ = self.request("POST", "/api/tokens", {"label": "虚构测试令牌", "days": 7}, headers)
@@ -98,6 +109,22 @@ class StoreServerTests(unittest.TestCase):
                      "/api/v1/reports?kind=daily&end=2026-10-12&format=json"):
             with self.subTest(path=path):
                 self.assertEqual(self.request("GET", path)[0], 401)
+
+    def test_password_login_keeps_session_while_clearing_oauth_handoff(self):
+        status, body, headers = self.request("POST", "/api/login", {
+            "username": "test_editor", "password": self.password}, {"Cookie": "dino_ding_handoff=synthetic-old-handoff"})
+        self.assertEqual(status, 200)
+        cookies = headers.cookies
+        self.assertTrue(cookies["dino_session"].value)
+        self.assertEqual(cookies["dino_session"]["httponly"], True)
+        self.assertEqual(cookies["dino_ding_handoff"].value, "")
+        self.assertEqual(cookies["dino_ding_handoff"]["max-age"], "0")
+        result = json.loads(body)
+        session_headers = {"Cookie": "dino_session=" + cookies["dino_session"].value, "X-CSRF-Token": result["csrf"]}
+        status, body, _ = self.request("GET", "/api/me", headers=session_headers)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["user"]["username"], "test_editor")
+        self.assertFalse(json.loads(body)["user"]["permissions"]["manage_all"])
 
     def test_draft_scripts_served_as_javascript_in_dependency_order(self):
         status, body, _ = self.request("GET", "/")

@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from app import __version__
 from app.store import Store
+from app.dingtalk_login import HANDOFF_COOKIE, HANDOFF_COOKIE_CLEAR, HANDOFF_SECONDS
 from app.permissions import permission_profile, ItemPermissionError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -203,34 +204,36 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/auth/dingtalk":
             user = self.identity()
             info = self.server.dingtalk.status(self.cookie_value("dino_ding_binding"), user["username"] if user else None)
+            info["oauth_handoff"] = self.server.dingtalk.consume_oauth_handoff(
+                self.cookie_value(HANDOFF_COOKIE), session=self.cookie_value(COOKIE), pending=self.cookie_value("dino_ding_binding"))
             if info['enabled'] and self.gateway_origin():
                 info['login_url'] = self.gateway_origin() + '/auth/dingtalk/start'
-            return self.json(info)
+            return self.json(info, headers={"Set-Cookie": HANDOFF_COOKIE_CLEAR})
         if path == "/api/auth/dingtalk/workbench/start":
             from app.dingtalk_login import LoginError
             try:
                 self.server.dingtalk.cancel_pending(self.cookie_value("dino_ding_binding"))
                 public, cookie = self.server.dingtalk.workbench_start()
                 return self.json(public, headers={"Set-Cookie": ["dino_ding_workbench=" + cookie + "; Path=/api/auth/dingtalk/workbench; HttpOnly; SameSite=Strict; Max-Age=300",
-                                                               "dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"]})
+                                                               "dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0", HANDOFF_COOKIE_CLEAR]})
             except LoginError:
-                return self.json({"error": "钉钉端内登录暂不可用，请使用原账号登录"}, 400)
+                return self.json({"error": "钉钉端内登录暂不可用，请使用原账号登录"}, 400, headers={"Set-Cookie": HANDOFF_COOKIE_CLEAR})
         if path == "/auth/dingtalk/start":
             from app.dingtalk_login import LoginError
             ding = self.server.dingtalk
             if not ding.enabled:
-                return self.auth_redirect("/?dingtalk=disabled")
+                return self.auth_redirect("/?dingtalk=disabled", [HANDOFF_COOKIE_CLEAR])
             target_origin = self.gateway_origin() or ding.origin
             actual_origin = self.gateway_origin() or 'http://' + self.headers.get('Host','')
             if actual_origin != target_origin:
-                return self.auth_redirect(target_origin + path)
+                return self.auth_redirect(target_origin + path, [HANDOFF_COOKIE_CLEAR])
             try:
                 ding.cancel_pending(self.cookie_value("dino_ding_binding"))
                 target, cookie = ding.start(public=bool(self.gateway_origin()))
                 return self.auth_redirect(target, [f"dino_ding_oauth={cookie}; Path=/auth/dingtalk; HttpOnly; SameSite=Lax; Max-Age=600",
-                                                  "dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"])
+                                                  "dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0", HANDOFF_COOKIE_CLEAR])
             except LoginError:
-                return self.auth_redirect("/?dingtalk=failed")
+                return self.auth_redirect("/?dingtalk=failed", [HANDOFF_COOKIE_CLEAR])
         if path == "/auth/dingtalk/callback":
             from app.dingtalk_login import LoginError
             cookies = ["dino_ding_oauth=; Path=/auth/dingtalk; HttpOnly; SameSite=Lax; Max-Age=0"]
@@ -242,13 +245,18 @@ class Handler(BaseHTTPRequestHandler):
                 if "pending" in result:
                     cookies.append(f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
                     cookies.append(f"dino_ding_binding={result['pending']}; Path=/; HttpOnly; SameSite=Strict; Max-Age=600")
+                    ticket = self.server.dingtalk.issue_oauth_handoff("binding", result["pending"])
+                    cookies.append(f"{HANDOFF_COOKIE}={ticket}; Path=/; HttpOnly; SameSite=Strict; Max-Age={HANDOFF_SECONDS}")
                     return self.auth_redirect("/?dingtalk=bind", cookies)
                 token = result["session"]["token"]
                 cookies.extend([f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200",
                                 "dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"])
+                ticket = self.server.dingtalk.issue_oauth_handoff("session", token)
+                cookies.append(f"{HANDOFF_COOKIE}={ticket}; Path=/; HttpOnly; SameSite=Strict; Max-Age={HANDOFF_SECONDS}")
                 return self.auth_redirect("/?dingtalk=ok", cookies)
             except (LoginError, ValueError) as error:
                 self.server.dingtalk.record_failure(error)
+                cookies.append(HANDOFF_COOKIE_CLEAR)
                 return self.auth_redirect("/?dingtalk=failed", cookies)
         if path == "/vendor/dingtalk-workbench.js":
             target = ROOT / "web/vendor/dingtalk-workbench.js"
@@ -430,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
                 expected_origins = {self.gateway_origin()} if self.gateway_origin() else {"http://" + h for h in self.server.allowed_hosts}
                 if self.headers.get("Origin") not in expected_origins:
                     return self.json({"error": "登录请求来源不被允许"}, 403)
-                cookies = ["dino_ding_workbench=; Path=/api/auth/dingtalk/workbench; HttpOnly; SameSite=Strict; Max-Age=0"]
+                cookies = ["dino_ding_workbench=; Path=/api/auth/dingtalk/workbench; HttpOnly; SameSite=Strict; Max-Age=0", HANDOFF_COOKIE_CLEAR]
                 from app.dingtalk_login import LoginError
                 try:
                     result = self.server.dingtalk.workbench_login(data.get("nonce"), self.cookie_value("dino_ding_workbench"), data.get("code"))
@@ -469,7 +477,7 @@ class Handler(BaseHTTPRequestHandler):
                 with self.server.attempt_lock:
                     self.server.attempts.pop(ip, None)
                 token = result.pop("token")
-                cookies = [f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200"]
+                cookies = [f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200", HANDOFF_COOKIE_CLEAR]
                 if pending and not result["user"]["must_change_password"]:
                     cookies.append("dino_ding_binding=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
                 return self.json(result, headers={"Set-Cookie": cookies})
@@ -486,7 +494,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": str(exc), "code": exc.code}, 410)
             if path == "/api/auth/dingtalk/unbind" and method == "POST":
                 self.server.dingtalk.unbind(user["username"])
-                return self.json({"ok": True}, headers={"Set-Cookie": f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"})
+                return self.json({"ok": True}, headers={"Set-Cookie": [f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0", HANDOFF_COOKIE_CLEAR]})
             if path == "/api/jobs" and method == "POST":
                 if user["role"] != "admin":
                     return self.json({"error": "仅李睿琪可启动整理，其他账号可查看运行结果"}, 403)
@@ -509,13 +517,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"case": self.server.after_sales.update(unquote(path[len('/api/after-sales/'):]), data, user)})
             if path == "/api/logout" and method == "POST":
                 self.server.store.logout(self.session_token)
-                return self.json({"ok": True}, headers={"Set-Cookie": f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"})
+                return self.json({"ok": True}, headers={"Set-Cookie": [f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0", HANDOFF_COOKIE_CLEAR]})
             if path == "/api/password" and method == "POST":
                 old, new = data.get("old_password", ""), data.get("new_password", "")
                 if not isinstance(old, str) or not isinstance(new, str):
                     raise ValueError("密码格式无效")
                 self.server.store.change_password(user["username"], old, new)
-                return self.json({"ok": True}, headers={"Set-Cookie": f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"})
+                return self.json({"ok": True}, headers={"Set-Cookie": [f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0", HANDOFF_COOKIE_CLEAR]})
             if path == "/api/items" and method == "POST":
                 if user["role"] != "admin":
                     return self.json({"error": "手工登记事项由李睿琪管理账号执行"}, 403)

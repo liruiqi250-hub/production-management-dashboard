@@ -1,4 +1,4 @@
-> 当前版本 V0.3.31：生产单关键词搜索、生成资料7天未使用自动清理、打印/云打印入口与本机固定打印队列。源码与完整运行包使用同版本标签，下载见 [V0.3.31 发布页](https://github.com/liruiqi250-hub/production-management-dashboard/releases/tag/v0.3.31)。
+> 当前版本 V0.3.33：每日成功归档后向李睿琪发送正式日报，曾悦继续接收重点专报；保留本人失败提醒、独立防重和原卡片/PDF按钮。完整运行包与校验附件见 [V0.3.33 发布页](https://github.com/liruiqi250-hub/production-management-dashboard/releases/tag/v0.3.33)，需使用有仓库权限的GitHub账号访问。
 
 ## 生产资料生成与预览（V0.3.29）
 

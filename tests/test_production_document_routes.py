@@ -12,6 +12,7 @@ from urllib.parse import quote, unquote
 
 from app.server import DashboardServer
 from app.store import Store, now, password_hash
+from tests.test_store_server import ResponseHeaders
 
 
 class ProductionDocumentRouteTests(unittest.TestCase):
@@ -98,14 +99,14 @@ class ProductionDocumentRouteTests(unittest.TestCase):
         try:
             connection.request(method, path, data, headers)
             response = connection.getresponse()
-            return response.status, response.read(), dict(response.getheaders())
+            return response.status, response.read(), ResponseHeaders(response.getheaders())
         finally:
             connection.close()
 
     def login(self, username="liruiqi"):
         status, body, headers = self.request("POST", "/api/login", {"username": username, "password": self.password})
         self.assertEqual(status, 200)
-        return {"Cookie": headers["Set-Cookie"].split(";", 1)[0], "X-CSRF-Token": json.loads(body)["csrf"]}
+        return {"Cookie": "dino_session=" + headers.cookies["dino_session"].value, "X-CSRF-Token": json.loads(body)["csrf"]}
 
     def detail_path(self, order_id=None):
         return f"/api/production/orders/{order_id or self.order_id}/documents"

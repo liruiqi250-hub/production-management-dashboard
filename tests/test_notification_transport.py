@@ -73,6 +73,67 @@ class IndependentNotificationTests(unittest.TestCase):
             self.config['operator_alerts_enabled']=False;self.write()
             with self.assertRaises(ValueError):operator_config(self.store)
 
+    def test_operator_daily_uses_own_verified_route_and_keeps_card_buttons(self):
+        self.config.update(operator_daily={'enabled':True,'username':'liruiqi'},
+                           presentation='card',cards_approved=True)
+        self.write()
+        cfg=independent_config(self.store,self.config,'https://example.example.workers.dev')
+        client=FakeClient();service=Notifications(self.store,client=client)
+        at=datetime(2026,10,23,16,10,tzinfo=TZ)
+        snapshot={'items':[],'after_sales':{'cases':[]},'imported_at':at.isoformat()}
+        with patch.object(service,'config',return_value=cfg):
+            result=service.deliver(snapshot,'example-job',at=at)
+            service.deliver(snapshot,'example-job-again',at=at)
+        self.assertEqual([(c,t) for c,t,_ in client.calls],
+                         [('leader','example-zengyue'),('operator-daily','example-liruiqi')])
+        self.assertEqual(result['enabled_channels'],['leader','operator-daily'])
+        self.assertEqual(result['disabled_channels'],['group'])
+        card=json.loads(client.calls[1][2])['notification_card']['msgParam']
+        self.assertIn('李睿琪',card['title']);self.assertNotIn('预览',card['title'])
+        self.assertEqual((card['actionTitle1'],card['actionTitle2']),('打开看板','下载日报 PDF'))
+
+    def test_operator_daily_wrong_username_and_inactive_account_are_blocked(self):
+        self.config['operator_daily']={'enabled':True,'username':'zengyue'}
+        with self.assertRaises(ValueError):independent_config(self.store,self.config,'https://example.example.workers.dev')
+        self.config['operator_daily']['username']='liruiqi'
+        with self.store.connect() as db:db.execute("UPDATE users SET active=0 WHERE username='liruiqi'")
+        with self.assertRaises(ValueError):independent_config(self.store,self.config,'https://example.example.workers.dev')
+
+    def test_enabling_operator_after_leader_success_does_not_resend_leader(self):
+        client=FakeClient();service=Notifications(self.store,client=client)
+        at=datetime(2026,10,23,16,10,tzinfo=TZ)
+        snapshot={'items':[],'after_sales':{'cases':[]},'imported_at':at.isoformat()}
+        cfg=independent_config(self.store,self.config,'https://example.example.workers.dev')
+        with patch.object(service,'config',return_value=cfg):service.deliver(snapshot,'first',at=at)
+        self.config['operator_daily']={'enabled':True,'username':'liruiqi'}
+        cfg=independent_config(self.store,self.config,'https://example.example.workers.dev')
+        with patch.object(service,'config',return_value=cfg):service.deliver(snapshot,'same-job',at=at)
+        self.assertEqual([(c,t) for c,t,_ in client.calls],
+                         [('leader','example-zengyue'),('operator-daily','example-liruiqi')])
+
+    def test_operator_unknown_sending_and_rejected_keep_existing_retry_rules(self):
+        self.config['operator_daily']={'enabled':True,'username':'liruiqi'}
+        self.config['leader']['enabled']=False
+        cfg=independent_config(self.store,self.config,'https://example.example.workers.dev')
+        at=datetime(2026,10,23,16,10,tzinfo=TZ)
+        snapshot={'items':[],'after_sales':{'cases':[]},'imported_at':at.isoformat()}
+        client=FakeClient();service=Notifications(self.store,client=client)
+        with patch.object(service,'config',return_value=cfg):
+            client.error=TimeoutError()
+            service.deliver(snapshot,'unknown',at=at)
+            client.error=None
+            service.deliver(snapshot,'no-repeat',at=at,retry_failed=True)
+            self.assertEqual(len(client.calls),1)
+            with service.connect() as db:db.execute("UPDATE outbox SET state='sending'")
+            service.deliver(snapshot,'sending-no-repeat',at=at,retry_failed=True)
+            self.assertEqual(len(client.calls),1)
+            with service.connect() as db:db.execute("UPDATE outbox SET state='rejected'")
+            service.deliver(snapshot,'no-implicit-retry',at=at)
+            self.assertEqual(len(client.calls),1)
+            service.deliver(snapshot,'explicit-retry',at=at,retry_failed=True)
+            self.assertEqual(len(client.calls),2)
+            self.assertEqual(service.status()[0]['state'],'accepted')
+
     def test_inactive_real_account_cannot_receive(self):
         with self.store.connect() as db:db.execute("UPDATE users SET active=0 WHERE username='zengyue'")
         with self.assertRaises(ValueError):independent_sender(self.store,self.config)
