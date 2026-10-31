@@ -1,14 +1,47 @@
 """独立发布器的本地安全边界测试；不访问网络或真实业务材料。"""
 
 from pathlib import Path
+import json
 import subprocess
 import tempfile
 import unittest
 
-from scripts.publish_github import PublishError, collect_files, require_committed, sync_files, require_non_regressing_version
+from scripts.publish_github import (PublishError, collect_files, require_committed, sync_files,
+                                    require_non_regressing_version, project_profile, PROJECT_REPOS, publish)
+from unittest.mock import patch
 
 
 class PublishGitHubTests(unittest.TestCase):
+    def test_independent_projects_cannot_publish_to_other_repository(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "PROJECT.json").write_text(json.dumps({"profile": "lantern", "repository": PROJECT_REPOS["lantern"]}))
+            self.assertEqual(project_profile(root), "lantern")
+            with patch("scripts.publish_github.require_committed"), self.assertRaisesRegex(PublishError, "跨项目"):
+                publish(root, repo=PROJECT_REPOS["production"])
+            (root / "PROJECT.json").write_text('{"profile":"lantern","repository":"https://github.com/example/wrong"}')
+            with self.assertRaisesRegex(PublishError, "声明无效"):
+                project_profile(root)
+
+    def test_independent_snapshot_excludes_other_product_entries(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            names = ["PROJECT.json", "启动彩灯看板_V0.3.5.cmd", "启动生产看板_V0.3.34.cmd",
+                     "web/index.html", "web/lantern/index.html", "app/lantern_server.py", "app/lantern_documents.py"]
+            for name in names:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("fixture", encoding="utf-8")
+            for profile in PROJECT_REPOS:
+                (root / "PROJECT.json").write_text(json.dumps({"profile": profile, "repository": PROJECT_REPOS[profile]}))
+                selected = collect_files(root, names)
+                self.assertEqual("web/lantern/index.html" in selected, profile == "lantern")
+                self.assertEqual("web/index.html" in selected, profile == "production")
+                self.assertEqual("启动彩灯看板_V0.3.5.cmd" in selected, profile == "lantern")
+                self.assertEqual("启动生产看板_V0.3.34.cmd" in selected, profile == "production")
+                self.assertEqual("app/lantern_server.py" in selected, profile == "lantern")
+                self.assertIn("app/lantern_documents.py", selected)
+
     def test_older_workspace_cannot_replace_newer_remote(self):
         with self.assertRaisesRegex(PublishError, "须先合并远端功能"):
             require_non_regressing_version("0.2.14", "0.3.4")

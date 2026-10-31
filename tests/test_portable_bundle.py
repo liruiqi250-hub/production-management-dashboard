@@ -145,6 +145,12 @@ class PortableBundleTests(unittest.TestCase):
             with self.assertRaisesRegex(bundle.PublishError, "敏感文件"):
                 bundle.build_bundle(self.root, offline=True)
 
+    def test_declared_project_rejects_opposite_package_before_build(self):
+        (self.root / "PROJECT.json").write_text(json.dumps({
+            "profile": "lantern", "repository": "https://github.com/liruiqi250-hub/lantern-management-dashboard"}))
+        with self.assertRaisesRegex(bundle.BundleError, "跨项目打包"):
+            bundle.build_bundle(self.root, profile="production")
+
     def test_successful_download_still_requires_expected_checksum(self):
         expected = copy.deepcopy(self.python)
         expected["archive_filename"] = "downloaded-python.zip"

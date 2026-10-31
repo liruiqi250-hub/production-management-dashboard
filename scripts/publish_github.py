@@ -13,10 +13,14 @@ from typing import Iterable
 
 
 DEFAULT_REPO = "https://github.com/liruiqi250-hub/production-management-dashboard"
+PROJECT_REPOS = {
+    "production": DEFAULT_REPO,
+    "lantern": "https://github.com/liruiqi250-hub/lantern-management-dashboard",
+}
 TEXT_SUFFIXES = {".py", ".js", ".cjs", ".mjs", ".ts", ".css", ".html", ".json", ".md", ".txt",
                  ".ps1", ".cmd", ".bat", ".toml", ".yaml", ".yml", ".csv",
                  ".ini", ".cfg", ".xml", ".sh", ".cmake"}
-ROOT_FILES = {".gitignore", "AGENTS.md", "README.md", "CHANGELOG.md", "VERSION", "INSTALL_FOR_CODEX.md",
+ROOT_FILES = {".gitignore", "AGENTS.md", "README.md", "CHANGELOG.md", "VERSION", "PROJECT.json", "INSTALL_FOR_CODEX.md",
               "检查完整安装.cmd", "配置微信采集.cmd"}
 CODE_DIRS = {"app", "web", "scripts", "tests", "docs", "automation", "dependencies"}
 EXCLUDED_DIRS = {"outputs", "private", "acquisition", "analysis", "runtime",
@@ -114,16 +118,53 @@ def _allowed_file(name: str) -> bool:
     return parts[0] in CODE_DIRS and Path(name).suffix.casefold() in TEXT_SUFFIXES
 
 
+def project_profile(source: Path) -> str | None:
+    """独立项目声明同时锁定发布仓库和运行包用途；旧源码保持兼容。"""
+    path = _safe_path(source, "PROJECT.json")
+    if not path.exists():
+        return None
+    try:
+        config = json.loads(path.read_text(encoding="utf-8-sig"))
+        profile = config["profile"]
+        if profile not in PROJECT_REPOS or config["repository"] != PROJECT_REPOS[profile]:
+            raise ValueError()
+    except (ValueError, KeyError, TypeError) as exc:
+        raise PublishError("PROJECT.json 的项目或仓库声明无效") from exc
+    return profile
+
+
+def project_file_allowed(name: str, profile: str | None) -> bool:
+    if profile is None:
+        return True
+    if name.startswith("启动彩灯看板"):
+        return profile == "lantern"
+    if name.startswith("启动生产看板"):
+        return profile == "production"
+    if name.startswith("web/"):
+        return name.startswith("web/lantern/") if profile == "lantern" else not name.startswith("web/lantern/")
+    if profile == "lantern" and name.startswith("docs/"):
+        return "lantern" in name.casefold()
+    if profile == "lantern" and name.startswith("automation/"):
+        return False
+    if profile == "production":
+        # 生产单解析仍复用 XML/Excel 底层工具，不包含彩灯服务和业务页面。
+        if name == "app/lantern_documents.py":
+            return True
+        return not ("lantern" in name.casefold() or name == "scripts/start_lantern.ps1")
+    return True
+
+
 def collect_files(source: Path, tracked: Iterable[str]) -> dict[str, bytes]:
     """仅读取 tracked 白名单文件；敏感文件名在读取内容之前拦截。"""
     names = [_relative_name(name) for name in tracked]
     sensitive = [name for name in names if _sensitive_name(name)]
     if sensitive:
         raise PublishError("发现禁止发布的敏感文件：" + "、".join(sorted(sensitive)))
+    profile = project_profile(source) if "PROJECT.json" in names else None
     files: dict[str, bytes] = {}
     for name in names:
         path = _safe_path(source, name)
-        if not _allowed_file(name):
+        if not _allowed_file(name) or not project_file_allowed(name, profile):
             continue
         if not path.is_file():
             raise PublishError(f"已跟踪文件不存在或不是普通文件：{name}")
@@ -204,10 +245,14 @@ def require_non_regressing_version(version: str, remote_version: str) -> None:
         raise PublishError(f"远端 V{remote_version.strip()} 高于本机 V{version}；须先合并远端功能，拒绝覆盖 main 或创建发布标签")
 
 
-def publish(source: Path, *, repo: str = DEFAULT_REPO, push: bool = False) -> dict[str, object]:
+def publish(source: Path, *, repo: str | None = None, push: bool = False) -> dict[str, object]:
     source = source.resolve()
-    repo, repo_name = _canonical_repo(repo)
     require_committed(source)
+    profile = project_profile(source)
+    expected_repo = PROJECT_REPOS[profile] if profile else DEFAULT_REPO
+    repo, repo_name = _canonical_repo(repo or expected_repo)
+    if profile and repo != expected_repo:
+        raise PublishError("拒绝跨项目发布：仓库必须与 PROJECT.json 一致")
     source_commit = run(["git", "rev-parse", "HEAD"], cwd=source).stdout.strip()
     files = collect_files(source, _tracked(source))
     if "VERSION" not in files:
@@ -284,7 +329,7 @@ def publish(source: Path, *, repo: str = DEFAULT_REPO, push: bool = False) -> di
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--repo", default=DEFAULT_REPO)
+    parser.add_argument("--repo", default=None, help="默认使用 PROJECT.json 声明的独立仓库")
     parser.add_argument("--push", action="store_true", help="将已准备的 main 和版本标签原子推送至私有仓库")
     args = parser.parse_args()
     try:

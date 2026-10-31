@@ -11,3 +11,5 @@
 - 对内网正在运行的服务，只能核对本项目PID及命令行后重启；保留已有用户密码、权限和人工结果。
 
 - 从V0.2.7起发布完整微信/语音依赖包（build_portable.py --with-wechat），并上传SHA与许可要求的准确源码附件；接收者Codex先读INSTALL_FOR_CODEX.md。新电脑组件安装、私有绑定、指定群真实采集与定时任务分别验收，同事只读使用不重复部署采集。
+
+- 2026-10-31 用户要求两个项目分仓：本项目仅发布生产看板；彩灯独立仓库为 https://github.com/liruiqi250-hub/lantern-management-dashboard 。PROJECT.json 固定 production，禁止从本工作区发布或构建彩灯包。本次拆分含发布已获明确授权，不构成后续自动上传授权。

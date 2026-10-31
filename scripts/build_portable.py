@@ -16,9 +16,9 @@ import urllib.request
 import zipfile
 
 try:
-    from scripts.publish_github import PublishError, _relative_name, _safe_path, _tracked, collect_files
+    from scripts.publish_github import PublishError, _relative_name, _safe_path, _tracked, collect_files, project_profile
 except ModuleNotFoundError:
-    from publish_github import PublishError, _relative_name, _safe_path, _tracked, collect_files
+    from publish_github import PublishError, _relative_name, _safe_path, _tracked, collect_files, project_profile
 
 
 class BundleError(RuntimeError):
@@ -207,8 +207,12 @@ def write_zip(root: Path, output: Path) -> None:
 
 
 def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = False,
-                 profile: str = "production") -> dict:
+                 profile: str | None = None) -> dict:
     source = source.resolve()
+    declared_profile = project_profile(source)
+    if declared_profile and profile and profile != declared_profile:
+        raise BundleError("拒绝跨项目打包：用途必须与 PROJECT.json 一致")
+    profile = profile or declared_profile or "production"
     files = collect_files(source, _tracked(source))
     try:
         version = files["VERSION"].decode("utf-8-sig").strip()
@@ -305,7 +309,7 @@ def main() -> int:
     parser.add_argument("--workspace", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--offline", action="store_true", help="只使用已校验的本机依赖缓存")
     parser.add_argument("--with-wechat", action="store_true", help="额外打包微信采集、媒体解码和离线语音模型")
-    parser.add_argument("--profile", choices=("production", "lantern"), default="production", help="独立彩灯运行包使用lantern")
+    parser.add_argument("--profile", choices=("production", "lantern"), default=None, help="默认读取 PROJECT.json，禁止跨项目打包")
     args = parser.parse_args()
     try:
         result = build_bundle(args.workspace, offline=args.offline, include_wechat=args.with_wechat, profile=args.profile)
