@@ -1,8 +1,8 @@
-# 仿真恐龙生产管理看板 V0.3.34
+# 仿真恐龙生产管理看板 V0.3.35
 
 本仓库仅发布生产看板。彩灯已迁入 [彩灯独立私有仓库](https://github.com/liruiqi250-hub/lantern-management-dashboard)。`PROJECT.json` 固定 production 项目，禁止向彩灯仓库发布或在本项目打包彩灯系统。
 
-> 当前版本 V0.3.34：每日成功归档后向李睿琪发送正式日报，曾悦继续接收重点专报；保留本人失败提醒、独立防重和原卡片/PDF按钮。完整运行包与校验附件见 [V0.3.34 发布页](https://github.com/liruiqi250-hub/production-management-dashboard/releases/tag/v0.3.34)，需使用有仓库权限的GitHub账号访问。
+> 当前版本 V0.3.35：生产仓库按用户要求公开；根目录统一使用固定名称入口，旧版本兼容 CMD 集中保留。完整运行包与校验附件见 [V0.3.35 发布页](https://github.com/liruiqi250-hub/production-management-dashboard/releases/tag/v0.3.35)，生产仓库与运行包可公开下载。
 
 ## 生产资料生成与预览（V0.3.29）
 
@@ -33,7 +33,7 @@ V0.3.28员工仅能修改本人跟进的生产和售后事项，其他人员及�
 - 工厂周末正常上班，三天无实质进展自动优先时仅扣国家放假日期；当前已核验2026年日历。刷新、改负责人和重复导入不重新计时，未配置年份显示待补日历。
 - 只读接口新增 `GET /api/v1/after-sales`，`GET /api/v1/overview` 同时返回 `after_sales`。邮件接入留待后续确定账号、收件范围和发送方式。
 
-双击 `启动生产看板_V0.3.34.cmd`（旧版入口也兼容）；服务已运行时直接打开浏览器。现有部署沿用本人已设置的密码和权限，更新不重置密码。全新副本首次启动生成随机初始密码，保存在该副本 `private/初始账号_V0.2.0.txt`，不写入源码；首次登录本人改密，新密码10至120个字符，需要重复输入，不能与原密码相同。
+双击 `启动生产看板.cmd`（旧版入口也兼容）；服务已运行时直接打开浏览器。现有部署沿用本人已设置的密码和权限，更新不重置密码。全新副本首次启动生成随机初始密码，保存在该副本 `private/初始账号_V0.2.0.txt`，不写入源码；首次登录本人改密，新密码10至120个字符，需要重复输入，不能与原密码相同。
 
 待本人改密期间只能查看本人登录信息、修改本人密码或退出，不能读取生产数据和报表，也不能生成或使用Codex令牌。原会话和原令牌已失效；本人改密登录后可重新生成个人只读令牌。新增或管理重置的账号同样需要本人先改密。服务重启不会再次重置密码。
 
@@ -89,14 +89,14 @@ V0.3.28员工仅能修改本人跟进的生产和售后事项，其他人员及�
 
 ## 代码仓库与独立运行
 
-代码仓库：https://github.com/liruiqi250-hub/production-management-dashboard （私有）。每次更新先在本机递增版本并验证，再询问用户是否上传GitHub；仅在明确同意后构建运行包并同步代码与版本标签，规则见AGENTS.md。获准发布后运行 `python scripts/publish_github.py --push`，发布器仅同步当前代码与说明至runtime/github_publish中的独立清洁main分支，禁止推送根仓库历史。上传后需核验远端版本、提交和标签。
+代码仓库：https://github.com/liruiqi250-hub/production-management-dashboard （公开）。每次更新先在本机递增版本并验证，再询问用户是否上传GitHub；仅在明确同意后构建运行包并同步代码与版本标签，规则见AGENTS.md。获准发布后运行 `python scripts/publish_github.py --push`，发布器仅同步当前代码与说明至runtime/github_publish中的独立清洁main分支，禁止推送根仓库历史。上传后需核验远端版本、提交和标签。
 
 仓库保存代码、说明、依赖锁文件与构建入口。对应版本的GitHub Releases另提供包含运行依赖的Windows x64便携ZIP；源码ZIP不含二进制依赖。微信原文、媒体、业务数据库、初始密码、API令牌和私有绑定均不上传。实际阶段确认原文位于本机 `private/stage_closures_V0.2.0.json`，不会上传。
 
 ### 新电脑使用便携包
 
 1. 在[版本下载页](https://github.com/liruiqi250-hub/production-management-dashboard/releases)下载对应版本Windows x64 ZIP，解压到本机可写目录（Windows 10/11，64位）。
-2. 双击 `检查运行环境_V0.3.34.cmd` 检查看板与PDF组件；双击 `启动生产看板_V0.3.34.cmd` 启动。随包提供Python和PDF渲染组件，主体无需另装Python、Node或pip包。
+2. 双击 `检查运行环境.cmd` 检查看板与PDF组件；双击 `启动生产看板.cmd` 启动。随包提供Python和PDF渲染组件，主体无需另装Python、Node或pip包。
 3. 新副本首次启动为空台账，管理与厂长初始账号随机生成在该副本的 `private/初始账号_V0.2.0.txt`；登录后必须本人改密。现有办公室服务的密码和数据不会因代码更新而重置。
 4. 同一内网其它设备使用启动器显示的地址。由接收者的Codex安装时，先阅读根目录 `INSTALL_FOR_CODEX.md` 与 `docs/Codex安装验收.md`。只查看或用Codex读取数据的同事直接连接办公室看板，不必重复部署采集。
 5. 正式发布后的完整包文件名含`full`，额外带独立Python 3.12、微信采集依赖、SILK解码、FFmpeg和SenseVoice离线模型；运行`检查完整安装.cmd`。组件无需另装，本机微信登录与授权绑定仍需按 `dependencies/微信采集依赖.md` 配置。已有Codex每日整理任务需要在实际接替采集的电脑单独设置。
@@ -133,3 +133,9 @@ V0.3.28 工作台端内自动登录及SDK随包说明见 `docs/dingtalk-login.md
 钉钉日报推送 V0.3.28：接收范围固定为办公群与曾悦本人，安装包默认未配置、不会发送。请维护人员阅读 [推送配置与验收](docs/dingtalk-notifications.md)，配置与测试必须在本公司授权范围内完成；不复制原电脑private。
 
 V0.3.28补充：按用户当轮明确要求，筛选栏、跟进清单和右侧详情移入独立“跟进清单”导航，不再放在首页；首页保留人员待办、优先处理与汇总，点击具体生产事项直达独立栏目。
+
+## 启动入口整理（V0.3.35）
+
+根目录仅保留四个常用 CMD：启动生产看板.cmd、检查运行环境.cmd、检查完整安装.cmd、配置微信采集.cmd。当前版本命名入口在 scripts/launchers/current；旧生产启动入口在 scripts/launchers/legacy/production，旧环境检查入口在 scripts/launchers/legacy/environment。
+
+旧版本 CMD 都会调用当前安装目录的同一套程序，只作兼容入口，不代表旧版本程序，也不能用于软件回退。需要回退时使用对应历史 Release 并按备份流程恢复。移动后的入口已修正相对路径，支持从其他工作目录调用及参数透传。详细用途见 [CMD 入口说明](scripts/launchers/README.md)。

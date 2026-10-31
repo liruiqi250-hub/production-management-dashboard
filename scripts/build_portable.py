@@ -224,7 +224,7 @@ def build_bundle(source: Path, *, offline: bool = False, include_wechat: bool = 
     if profile not in {"production", "lantern"}:
         raise BundleError("运行包用途无效")
     launcher = f"启动{'彩灯' if profile == 'lantern' else '生产'}看板_V{version}.cmd"
-    if launcher not in files:
+    if launcher not in files and f"scripts/launchers/current/{launcher}" not in files:
         raise BundleError("缺少与 VERSION 一致的已跟踪启动入口")
     cache = _safe_path(source, "runtime/dependency_cache")
     archives = [(item, obtain_archive(item, cache, offline=offline)) for item in lock["components"]]

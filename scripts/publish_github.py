@@ -133,12 +133,31 @@ def project_profile(source: Path) -> str | None:
     return profile
 
 
+def project_visibility(source: Path) -> str:
+    """公开发布须由项目明确声明；其他项目和旧源码继续要求私有。"""
+    profile = project_profile(source)
+    if profile is None:
+        return "private"
+    config = json.loads(_safe_path(source, "PROJECT.json").read_text(encoding="utf-8-sig"))
+    visibility = config.get("visibility", "private")
+    if visibility not in {"public", "private"} or (visibility == "public" and profile != "production"):
+        raise PublishError("PROJECT.json 的可见性声明无效；仅生产项目获准公开")
+    return visibility
+
+
+def require_repository_visibility(remote: object, repo_name: str, visibility: str) -> None:
+    if (not isinstance(remote, dict) or not isinstance(remote.get("nameWithOwner"), str)
+            or remote["nameWithOwner"].casefold() != repo_name.casefold()
+            or remote.get("isPrivate") is not (visibility == "private")):
+        raise PublishError(f"拒绝发布：远端仓库不匹配或不是声明的{visibility}仓库")
+
+
 def project_file_allowed(name: str, profile: str | None) -> bool:
     if profile is None:
         return True
-    if name.startswith("启动彩灯看板"):
+    if PurePosixPath(name).name.startswith("启动彩灯看板"):
         return profile == "lantern"
-    if name.startswith("启动生产看板"):
+    if PurePosixPath(name).name.startswith("启动生产看板"):
         return profile == "production"
     if name.startswith("web/"):
         return name.startswith("web/lantern/") if profile == "lantern" else not name.startswith("web/lantern/")
@@ -267,10 +286,8 @@ def publish(source: Path, *, repo: str | None = None, push: bool = False) -> dic
     try:
         remote = json.loads(run(["gh", "repo", "view", repo_name, "--json", "nameWithOwner,isPrivate"], cwd=source).stdout)
     except (json.JSONDecodeError, TypeError) as exc:
-        raise PublishError("无法核验 GitHub 仓库的私有属性") from exc
-    if (not isinstance(remote, dict) or not isinstance(remote.get("nameWithOwner"), str)
-            or remote["nameWithOwner"].casefold() != repo_name.casefold() or remote.get("isPrivate") is not True):
-        raise PublishError("拒绝发布：远端仓库不匹配或不是私有仓库")
+        raise PublishError("无法核验 GitHub 仓库的可见性") from exc
+    require_repository_visibility(remote, repo_name, project_visibility(source))
 
     target = _safe_path(source, "runtime/github_publish")
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -330,7 +347,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--repo", default=None, help="默认使用 PROJECT.json 声明的独立仓库")
-    parser.add_argument("--push", action="store_true", help="将已准备的 main 和版本标签原子推送至私有仓库")
+    parser.add_argument("--push", action="store_true", help="将已准备的 main 和版本标签原子推送至项目声明的仓库")
     args = parser.parse_args()
     try:
         result = publish(args.workspace, repo=args.repo, push=args.push)

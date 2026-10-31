@@ -1,5 +1,6 @@
 {
   "profile": "production",
   "name": "仿真恐龙生产管理看板",
-  "repository": "https://github.com/liruiqi250-hub/production-management-dashboard"
+  "repository": "https://github.com/liruiqi250-hub/production-management-dashboard",
+  "visibility": "public"
 }

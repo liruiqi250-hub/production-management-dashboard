@@ -21,6 +21,41 @@ POWERSHELL = shutil.which("powershell.exe")
 
 @unittest.skipUnless(os.name == "nt" and POWERSHELL, "仅Windows PowerShell环境执行")
 class PortableLauncherTests(unittest.TestCase):
+    def test_relocated_cmd_entries_resolve_paths_and_forward_arguments(self):
+        version = (ROOT / "VERSION").read_text(encoding="utf-8-sig").strip()
+        cases = [
+            "启动生产看板.cmd", "检查运行环境.cmd",
+            f"scripts/launchers/current/启动生产看板_V{version}.cmd",
+            f"scripts/launchers/current/检查运行环境_V{version}.cmd",
+            "scripts/launchers/legacy/production/启动生产看板_V0.2.0.cmd",
+            "scripts/launchers/legacy/environment/检查运行环境_V0.3.34.cmd",
+        ]
+        with tempfile.TemporaryDirectory(prefix="cmd 入口 验证 ") as folder:
+            root = Path(folder)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            stub = ("param([string]$Probe)\n"
+                    "$result = @{probe=$Probe; script=$MyInvocation.MyCommand.Name} | ConvertTo-Json -Compress\n"
+                    "[IO.File]::WriteAllText((Join-Path $PSScriptRoot 'cmd-result.json'), $result)\n")
+            for name in ["start_dashboard_V0.2.0.ps1", "check_environment.ps1"]:
+                (scripts / name).write_text(stub, encoding="utf-8-sig")
+            for name in cases:
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(ROOT / name, target)
+                # 从不同目录执行真实 CMD，脚本路径必须基于自身位置，不能依赖 cwd。
+                command = f'cmd.exe /d /s /c ""{target}" -Probe forwarded"'
+                result = subprocess.run(command, cwd=Path(folder).parent, input=b"\n",
+                                        capture_output=True, timeout=20)
+                self.assertEqual(result.returncode, 0, name + ": " + result.stderr.decode(errors="replace"))
+                receipt = scripts / "cmd-result.json"
+                self.assertTrue(receipt.is_file(), name)
+                record = json.loads(receipt.read_text(encoding="utf-8-sig"))
+                self.assertEqual(record["probe"], "forwarded", name)
+                self.assertEqual(record["script"], "check_environment.ps1" if "检查运行环境" in name
+                                 else "start_dashboard_V0.2.0.ps1", name)
+                receipt.unlink()
+
     def run_script(self, root, *arguments):
         command = [POWERSHELL, "-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-File",
                    str(root / "scripts" / "start_dashboard_V0.2.0.ps1"), "-NoBrowser",

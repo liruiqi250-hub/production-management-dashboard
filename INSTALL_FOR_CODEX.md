@@ -1,16 +1,16 @@
-# 接收电脑 Codex 安装说明 V0.3.34
+# 接收电脑 Codex 安装说明 V0.3.35
 
-> V0.3.34 为本机修复版本，尚未上传 GitHub、未构建完整运行包；下方同版本部署步骤仅在用户确认发布且对应 Release 实际提供附件后适用。源码、组件及实际业务接入分别验收。
+> V0.3.35：公开生产仓库与启动入口整理版本。下载包、SHA256 和附件以同版 Release 实际内容为准；源码、组件及真实业务接入分别验收。
 
 更新发布规则：本机完成、递增版本并验证后，先询问用户是否上传GitHub；未获明确同意，不运行推送、不推标签，也不预先构建完整运行包。本机版本可能高于GitHub最近发布版，以实际已发布Release为准。
 
-V0.3.34支持本机管理员明确持续授权后的自动阶段复核。已有部署保留private/context_review_policy.json及沟通资料，更新不重置授权和人工结果；新电脑没有授权文件时默认只生成候选，不能擅自用旧电脑或他人名义启用。策略结构与验收见docs/communication-profile.md。后台每轮保存stage_review_plans.json及stage_review_result.json，须结合真实台账验收。
+V0.3.35支持本机管理员明确持续授权后的自动阶段复核。已有部署保留private/context_review_policy.json及沟通资料，更新不重置授权和人工结果；新电脑没有授权文件时默认只生成候选，不能擅自用旧电脑或他人名义启用。策略结构与验收见docs/communication-profile.md。后台每轮保存stage_review_plans.json及stage_review_result.json，须结合真实台账验收。
 
 如本机已有 `private/communication_profiles_V1.0.0.json`，更新时保留。每轮整理会重新校验并读取，任务目录中的 `communication_profile_receipt.json` 可核验实际加载的版本、SHA和范围。该文件包含本机私有人员沟通案例，不包含在GitHub源码和运行包内；新电脑默认没有，不代表安装缺件。正式迁移需在用户授权下单独本机复制并重新核对办公室映射，详见 `docs/communication-profile.md`。
 
 ## 先按用户目的选择系统
 
-- 恐龙生产管理：下载 `production-dashboard-V0.3.34-full-windows-x64.zip`，运行 `启动生产看板_V0.3.34.cmd`，默认8769端口，按下方恐龙流程验收。
+- 恐龙生产管理：下载 `production-dashboard-V0.3.35-full-windows-x64.zip`，运行 `启动生产看板.cmd`，默认8769端口，按下方恐龙流程验收。
 - 彩灯已迁入独立仓库：https://github.com/liruiqi250-hub/lantern-management-dashboard 。
 - 两套账号、数据库、群清单和邮箱来源互相独立。不要把恐龙指定群绑定带入彩灯，也不要用彩灯人员配置覆盖恐龙办公室名单。
 
@@ -22,13 +22,13 @@ V0.3.34支持本机管理员明确持续授权后的自动阶段复核。已有�
 
 如果用户只是查看办公室看板或让自己的Codex总结生产数据：使用办公室当前内网网址登录，并由本人生成自己的只读Codex令牌，按README的API接口读取。无需在每位同事电脑上建立空台账或重复采集微信；令牌只存当地私有位置，不发给别人或上传GitHub。
 
-如果本机作为看板服务器或迁移接替办公室电脑：下载私有仓库最新Release的`production-dashboard-V0.3.34-full-windows-x64.zip`及同名`.sha256`。GitHub自带的Source code ZIP不包含运行组件。核验下载包SHA256后解压至本机可写的中文/空格目录也可使用；不要解压到微信数据目录。对应Release的第三方源码附件用于许可与重建，正常运行无需解压该源码附件。
+如果本机作为看板服务器或迁移接替办公室电脑：下载公开生产仓库最新Release的`production-dashboard-V0.3.35-full-windows-x64.zip`及同名`.sha256`。GitHub自带的Source code ZIP不包含运行组件。核验下载包SHA256后解压至本机可写的中文/空格目录也可使用；不要解压到微信数据目录。对应Release的第三方源码附件用于许可与重建，正常运行无需解压该源码附件。
 
 ## 安装与启动
 
 1. 确认Windows 10/11 x64、磁盘空间及包内SHA256SUMS.json。运行包内`vendor/python/python.exe -X utf8 scripts/doctor_installation.py --json --require-wechat`，读取JSON和退出码。首次缺少本机微信绑定是“需配置”，不能写成组件损坏或采集已成功。
-2. 运行`检查完整安装.cmd`，再运行`启动生产看板_V0.3.34.cmd`。也可通过`powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File scripts/start_dashboard_V0.2.0.ps1 -NoBrowser`启动。若Windows标记下载文件为阻止，核验来源与哈希后只解除此解压目录内文件的阻止，不更改全局执行策略。
-3. 服务健康接口的version字段应为 `0.3.34`，且workspace_id与本目录对应；核对启动器显示的内网地址，不沿用原电脑固定IP。新副本为空台账，初始账号文件由本机首次启动生成，首次登录后本人改密。更新已有部署必须先备份本机private及业务材料，不重置用户密码、不覆盖人工结果。
+2. 运行`检查完整安装.cmd`，再运行`启动生产看板.cmd`。也可通过`powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File scripts/start_dashboard_V0.2.0.ps1 -NoBrowser`启动。若Windows标记下载文件为阻止，核验来源与哈希后只解除此解压目录内文件的阻止，不更改全局执行策略。
+3. 服务健康接口的version字段应为 `0.3.35`，且workspace_id与本目录对应；核对启动器显示的内网地址，不沿用原电脑固定IP。新副本为空台账，初始账号文件由本机首次启动生成，首次登录后本人改密。更新已有部署必须先备份本机private及业务材料，不重置用户密码、不覆盖人工结果。
 4. 实际登录、手机布局、日报及周报下载分别验收。其它设备用当前办公室内网地址连接；若确因防火墙被拦，确认当前受信任网络和具体端口后仅配置该端口规则，不关闭防火墙、不开放公网。
 
 ## 恐龙生产资料、模板与打印验收
@@ -83,11 +83,15 @@ $probeOutput = Join-Path (Get-Location) ('acquisition/codex_probe_' + (Get-Date 
 
 安装结束请分别报告：包和组件校验、服务与报表、本机微信绑定、指定群真实采集、分析导入、每日任务设置。未完成的项如实注明原因，不合并成笼统“全部安装成功”。任何凭据、私有数据及真实账号标识均不写入提交、截图或公共日志。
 
-V0.3.34的办公室跟进人由办公室成员主动承接消息或明确交办推断，并保留owner_basis来源理由。自动推定待确认，人工指定与完成结果保留；owner不是实际执行人。详情可单独确认负责人，同事Codex读取时必须保留推定/人工确认区别。
+V0.3.35的办公室跟进人由办公室成员主动承接消息或明确交办推断，并保留owner_basis来源理由。自动推定待确认，人工指定与完成结果保留；owner不是实际执行人。详情可单独确认负责人，同事Codex读取时必须保留推定/人工确认区别。
 
-V0.3.34纠正规则：owner只允许办公室名单内人员。业务员、客户和其他发言人只是沟通来源；从办公室主动承接及明确交办判断，没有依据留空待分派。昵称须精确核对，不能由包含姓名的字符串猜身份。默认办公室名单为李睿琪、张英、银小芹、王星、郭逸、张利伟；本机可在private/office_staff.json配置names列表和aliases对象，私有配置不随包迁移。
+V0.3.35纠正规则：owner只允许办公室名单内人员。业务员、客户和其他发言人只是沟通来源；从办公室主动承接及明确交办判断，没有依据留空待分派。昵称须精确核对，不能由包含姓名的字符串猜身份。默认办公室名单为李睿琪、张英、银小芹、王星、郭逸、张利伟；本机可在private/office_staff.json配置names列表和aliases对象，私有配置不随包迁移。
 
 
 ## 彩灯项目独立部署
 
 彩灯源码、运行包与历史归档位于 https://github.com/liruiqi250-hub/lantern-management-dashboard ，请读取该仓库的 INSTALL_FOR_CODEX.md。本仓库不提供彩灯安装入口。
+
+## CMD 入口位置
+
+日常从根目录运行启动生产看板.cmd、检查运行环境.cmd、检查完整安装.cmd或配置微信采集.cmd。版本命名入口集中在 scripts/launchers/current；旧兼容入口在 scripts/launchers/legacy，调用当前程序，不用于恢复旧程序。升级已有目录时先保留 private 及资料；原目录遗留的旧根 CMD 不属于新包，确认无外部快捷方式依赖后可移入对应 legacy 目录并修正路径，不删除业务资料。

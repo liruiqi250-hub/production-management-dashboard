@@ -7,11 +7,34 @@ import tempfile
 import unittest
 
 from scripts.publish_github import (PublishError, collect_files, require_committed, sync_files,
-                                    require_non_regressing_version, project_profile, PROJECT_REPOS, publish)
+                                    require_non_regressing_version, project_profile, PROJECT_REPOS, publish,
+                                    project_visibility, require_repository_visibility)
 from unittest.mock import patch
 
 
 class PublishGitHubTests(unittest.TestCase):
+    def test_public_visibility_requires_explicit_production_declaration_and_match(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.assertEqual(project_visibility(root), "private")
+            for profile in PROJECT_REPOS:
+                config = {"profile": profile, "repository": PROJECT_REPOS[profile]}
+                (root / "PROJECT.json").write_text(json.dumps(config))
+                self.assertEqual(project_visibility(root), "private")
+                config["visibility"] = "public"
+                (root / "PROJECT.json").write_text(json.dumps(config))
+                if profile == "production":
+                    self.assertEqual(project_visibility(root), "public")
+                else:
+                    with self.assertRaises(PublishError):
+                        project_visibility(root)
+            remote = {"nameWithOwner": "example/repo", "isPrivate": False}
+            require_repository_visibility(remote, "example/repo", "public")
+            with self.assertRaises(PublishError):
+                require_repository_visibility(remote, "example/repo", "private")
+            with self.assertRaises(PublishError):
+                require_repository_visibility(remote, "example/other", "public")
+
     def test_independent_projects_cannot_publish_to_other_repository(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
